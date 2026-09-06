@@ -6,8 +6,12 @@ from .utils import sanitize_filename
 def plan(records: list[MediaRecord]) -> None:
     used: set[str] = set(); duplicate_index: dict[str, int] = {}
     for record in sorted(records, key=lambda r: (r.duplicate_group_id or "", not r.is_primary, r.relative_path)):
-        date = record.resolved_date or ""; parts = date.split("-")
-        root = "Photos_Archive" if record.is_primary else "Duplicates"
+        if record.is_primary and any(code in record.warnings for code in ("DATE_CONFLICT", "AMBIGUOUS_SIDECAR", "INVALID_JSON")):
+            root, date = "Review", ""
+        else:
+            root = "Photos_Archive" if record.is_primary else "Duplicates"
+            date = record.resolved_date or ""
+        parts = date.split("-")
         if len(parts) >= 2: folder = f"{root}/{parts[0]}/{parts[1]}"
         elif len(parts) == 1 and parts[0]: folder = f"{root}/{parts[0]}/Unknown-Month"
         else: folder = "Unknown-Date" if record.is_primary else "Duplicates-Unknown-Date"
