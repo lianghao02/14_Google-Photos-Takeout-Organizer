@@ -2,8 +2,8 @@
 
 ## Current Phase
 
-Core implementation and synthetic regression coverage in progress.
+MVP implementation and local synthetic validation completed.
 
 ## Next Step
 
-Install the package, complete smoke tests, review, commit, and push.
+Configure an `origin` remote, then push `feat/takeout-organizer-mvp`. Run a real Takeout validation only after an independently verified source backup exists.
