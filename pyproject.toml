@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "google-photos-takeout-organizer"
+version = "0.1.0"
+description = "Safe, traceable Google Photos Takeout organizer"
+requires-python = ">=3.13"
+dependencies = ["Pillow>=10.0"]
+
+[project.scripts]
+gpto = "google_photos_takeout_organizer.cli:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
