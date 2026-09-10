@@ -78,10 +78,10 @@ def format_file_size(size_in_bytes: int) -> str:
 
 
 class WorkerThread(QThread):
-    stage_changed = Signal(str)
+    stage_changed = Signal(str, int)  # status_text, stage_index (1: analyze, 2: export, 3: verify, 4: complete)
     progress_mode = Signal(bool)
     finished_success = Signal(dict)
-    finished_error = Signal(str, str)
+    finished_error = Signal(str, str, int)
 
     def __init__(self, sources: list[Path], output_dir: Path, analyze_only: bool = False) -> None:
         super().__init__()
@@ -91,15 +91,17 @@ class WorkerThread(QThread):
         self._is_cancelled = False
 
     def run(self) -> None:
+        current_stage = 1
         try:
             work_dir = self.output_dir / ".gpto_work"
             
-            self.stage_changed.emit("正在分析資料...")
+            current_stage = 1
+            self.stage_changed.emit("正在分析 Takeout 檔案...", 1)
             self.progress_mode.emit(True)
             manifest = analyze(self.sources, work_dir)
             
             if self.analyze_only:
-                self.stage_changed.emit("分析完成")
+                self.stage_changed.emit("分析完成", 4)
                 self.progress_mode.emit(False)
                 self.finished_success.emit({"manifest": manifest, "analyze_only": True, "work_dir": str(work_dir)})
                 return
@@ -107,16 +109,19 @@ class WorkerThread(QThread):
             if self._is_cancelled:
                 return
 
-            self.stage_changed.emit("正在整理檔案...")
+            current_stage = 2
+            self.stage_changed.emit("正在整理照片與影片...", 2)
             export_result = export(work_dir / "manifest.json", self.output_dir)
 
             if self._is_cancelled:
                 return
 
-            self.stage_changed.emit("正在驗證結果...")
+            current_stage = 3
+            self.stage_changed.emit("正在驗證整理結果...", 3)
             verify_result = verify(self.output_dir / "manifest.json", self.output_dir)
 
-            self.stage_changed.emit("整理完成")
+            current_stage = 4
+            self.stage_changed.emit("整理完成", 4)
             self.progress_mode.emit(False)
             self.finished_success.emit({
                 "manifest": export_result,
@@ -128,14 +133,15 @@ class WorkerThread(QThread):
             import traceback
             tb = traceback.format_exc()
             self.progress_mode.emit(False)
-            self.finished_error.emit(str(exc), tb)
+            self.finished_error.emit(str(exc), tb, current_stage)
 
 
 class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
         self.setWindowTitle("Google 相簿 Takeout 整理工具")
-        self.resize(780, 680)
+        self.resize(920, 640)
+        self.setMinimumSize(820, 580)
 
         self.sources: list[Path] = []
         self.output_dir: Path | None = None
@@ -150,53 +156,65 @@ class MainWindow(QMainWindow):
         central_widget = QWidget(self)
         self.setCentralWidget(central_widget)
         main_layout = QVBoxLayout(central_widget)
-        main_layout.setSpacing(10)
-        main_layout.setContentsMargins(14, 14, 14, 14)
+        main_layout.setSpacing(12)
+        main_layout.setContentsMargins(18, 16, 18, 16)
 
-        # 標題與說明
+        # 1. 標題與說明 (Header)
         header_layout = QVBoxLayout()
+        header_layout.setSpacing(4)
         lbl_title = QLabel("Google 相簿 Takeout 整理工具", self)
-        lbl_title.setStyleSheet("font-size: 16px; font-weight: bold;")
+        lbl_title.setStyleSheet("font-size: 18px; font-weight: bold; color: #1a1a1a;")
         lbl_subtitle = QLabel("將 Google Takeout 照片安全整理成依日期分類的資料夾", self)
-        lbl_subtitle.setStyleSheet("color: #666; font-size: 12px;")
+        lbl_subtitle.setStyleSheet("color: #666666; font-size: 12px;")
         header_layout.addWidget(lbl_title)
         header_layout.addWidget(lbl_subtitle)
         main_layout.addLayout(header_layout)
 
-        # ① Takeout 來源檔案
-        src_group = QGroupBox("① Takeout 來源檔案", self)
+        # 2. 來源檔案區塊
+        src_group = QGroupBox("來源檔案", self)
         src_layout = QVBoxLayout(src_group)
+        src_layout.setSpacing(6)
+        src_layout.setContentsMargins(12, 10, 12, 10)
 
         self.src_list = QListWidget(self)
         self.src_list.setSelectionMode(QListWidget.SelectionMode.ExtendedSelection)
-        self.src_list.setFixedHeight(120)
+        self.src_list.setFixedHeight(96)
         src_layout.addWidget(self.src_list)
 
-        src_bottom_layout = QHBoxLayout()
+        src_action_layout = QHBoxLayout()
         self.btn_add_zip = QPushButton("選擇 ZIP", self)
         self.btn_add_zip.clicked.connect(self._choose_zips)
-        src_bottom_layout.addWidget(self.btn_add_zip)
+        src_action_layout.addWidget(self.btn_add_zip)
 
         self.btn_add_more = QPushButton("加入更多", self)
         self.btn_add_more.clicked.connect(self._choose_zips)
-        src_bottom_layout.addWidget(self.btn_add_more)
+        src_action_layout.addWidget(self.btn_add_more)
 
         self.btn_remove = QPushButton("移除", self)
         self.btn_remove.clicked.connect(self._remove_selected)
-        src_bottom_layout.addWidget(self.btn_remove)
+        src_action_layout.addWidget(self.btn_remove)
 
-        src_bottom_layout.addStretch()
+        src_action_layout.addSpacing(12)
 
-        self.lbl_src_status = QLabel("尚未選取檔案", self)
-        self.lbl_src_status.setStyleSheet("color: #666;")
-        src_bottom_layout.addWidget(self.lbl_src_status)
+        self.lbl_src_count = QLabel("尚未選取 ZIP", self)
+        self.lbl_src_count.setStyleSheet("color: #555555; font-weight: 500;")
+        src_action_layout.addWidget(self.lbl_src_count)
 
-        src_layout.addLayout(src_bottom_layout)
+        src_action_layout.addStretch()
+        src_layout.addLayout(src_action_layout)
+
+        # 次要淡色提示文字 (拆行、小字、不搶焦點)
+        self.lbl_src_hint = QLabel("若同一批 Google Takeout 有多個分卷，建議一次全部選取，以提高中繼資料配對完整度。", self)
+        self.lbl_src_hint.setStyleSheet("color: #777777; font-size: 11px; margin-top: 2px;")
+        src_layout.addWidget(self.lbl_src_hint)
+
         main_layout.addWidget(src_group)
 
-        # ② 整理到 (輸出位置)
-        out_group = QGroupBox("② 整理到", self)
+        # 3. 輸出位置區塊
+        out_group = QGroupBox("輸出位置", self)
         out_layout = QHBoxLayout(out_group)
+        out_layout.setSpacing(8)
+        out_layout.setContentsMargins(12, 10, 12, 10)
 
         self.txt_output = QLineEdit(self)
         self.txt_output.setReadOnly(True)
@@ -204,79 +222,152 @@ class MainWindow(QMainWindow):
         out_layout.addWidget(self.txt_output)
 
         self.btn_choose_out = QPushButton("選擇", self)
+        self.btn_choose_out.setFixedWidth(80)
         self.btn_choose_out.clicked.connect(self._choose_output)
         out_layout.addWidget(self.btn_choose_out)
 
         main_layout.addWidget(out_group)
 
-        # 安全提示
-        lbl_safety = QLabel("☑ 原始 Takeout 不會被移動或刪除", self)
-        lbl_safety.setStyleSheet("color: #2e7d32; font-weight: bold; margin: 4px 0;")
+        # 4. 安全提示 (固定提示，不可取消)
+        lbl_safety = QLabel("✓ 原始 Takeout 不會被移動或刪除", self)
+        lbl_safety.setStyleSheet("color: #2e7d32; font-weight: bold; font-size: 12px; margin-left: 4px;")
         main_layout.addWidget(lbl_safety)
 
-        # 主要 CTA 操作按鈕 (置中突顯)
+        # 5. 主要操作按鈕 (唯一 Primary CTA，置中突顯)
         cta_layout = QHBoxLayout()
         cta_layout.addStretch()
         self.btn_start = QPushButton("開始整理", self)
-        self.btn_start.setFixedHeight(40)
-        self.btn_start.setMinimumWidth(220)
-        self.btn_start.setStyleSheet("font-size: 14px; font-weight: bold;")
+        self.btn_start.setObjectName("btn_start")
+        self.btn_start.setFixedHeight(42)
+        self.btn_start.setMinimumWidth(240)
+        self.btn_start.setStyleSheet("""
+            QPushButton#btn_start {
+                font-size: 15px;
+                font-weight: bold;
+                padding: 6px 20px;
+            }
+        """)
         self.btn_start.clicked.connect(lambda: self._start_task(analyze_only=False))
         cta_layout.addWidget(self.btn_start)
         cta_layout.addStretch()
         main_layout.addLayout(cta_layout)
 
-        # 處理進度
+        # 6. 處理進度區塊 (現代化 Stepper)
         progress_group = QGroupBox("處理進度", self)
         prog_layout = QVBoxLayout(progress_group)
+        prog_layout.setSpacing(6)
+        prog_layout.setContentsMargins(12, 10, 12, 10)
 
-        self.lbl_stage = QLabel("就緒", self)
-        self.lbl_stage.setStyleSheet("font-weight: 500;")
-        prog_layout.addWidget(self.lbl_stage)
+        # Stepper 流程狀態指示
+        self.lbl_stepper = QLabel(self)
+        self._update_stepper(stage=0)
+        prog_layout.addWidget(self.lbl_stepper)
 
         self.progress_bar = QProgressBar(self)
         self.progress_bar.setTextVisible(False)
+        self.progress_bar.setFixedHeight(6)
         self.progress_bar.setRange(0, 100)
         self.progress_bar.setValue(0)
         prog_layout.addWidget(self.progress_bar)
 
-        self.lbl_steps = QLabel("分析資料  ○      整理檔案  ○      驗證結果  ○", self)
-        self.lbl_steps.setStyleSheet("color: #666;")
-        prog_layout.addWidget(self.lbl_steps)
+        self.lbl_stage = QLabel("就緒", self)
+        self.lbl_stage.setStyleSheet("color: #444444; font-size: 12px; margin-top: 2px;")
+        prog_layout.addWidget(self.lbl_stage)
 
         main_layout.addWidget(progress_group)
 
-        # 整理結果
-        res_group = QGroupBox("整理結果", self)
-        res_layout = QVBoxLayout(res_group)
+        # 7. 整理結果區塊 (尚未完成時壓縮高度，完成後展開)
+        self.res_group = QGroupBox("整理結果", self)
+        self.res_layout = QVBoxLayout(self.res_group)
+        self.res_layout.setContentsMargins(12, 10, 12, 10)
 
-        self.txt_summary = QTextEdit(self)
-        self.txt_summary.setReadOnly(True)
-        self.txt_summary.setFixedHeight(100)
-        self.txt_summary.setPlaceholderText("完成整理後，將在此顯示照片、影片、中繼資料與驗證統計...")
-        res_layout.addWidget(self.txt_summary)
+        # 尚未完成前顯示簡潔提示
+        self.lbl_res_placeholder = QLabel("完成整理後，這裡會顯示整理與驗證結果。", self)
+        self.lbl_res_placeholder.setStyleSheet("color: #888888; font-size: 12px;")
+        self.res_layout.addWidget(self.lbl_res_placeholder)
 
-        # 完成後快速操作
-        quick_layout = QHBoxLayout()
+        # 完成後展開的詳細內容元件
+        self.widget_res_details = QWidget(self)
+        details_layout = QVBoxLayout(self.widget_res_details)
+        details_layout.setContentsMargins(0, 0, 0, 0)
+        details_layout.setSpacing(8)
+
+        self.lbl_stats_media = QLabel(self)
+        self.lbl_stats_media.setStyleSheet("font-size: 13px; font-weight: 500;")
+        details_layout.addWidget(self.lbl_stats_media)
+
+        self.lbl_stats_verify = QLabel(self)
+        self.lbl_stats_verify.setStyleSheet("font-size: 13px; font-weight: 500;")
+        details_layout.addWidget(self.lbl_stats_verify)
+
+        # 快捷動作按鈕
+        self.quick_layout = QHBoxLayout()
         self.btn_open_out = QPushButton("開啟整理結果", self)
-        self.btn_open_out.setEnabled(False)
         self.btn_open_out.clicked.connect(self._open_output_dir)
-        quick_layout.addWidget(self.btn_open_out)
+        self.quick_layout.addWidget(self.btn_open_out)
 
         self.btn_open_review = QPushButton("開啟人工確認", self)
-        self.btn_open_review.setEnabled(False)
         self.btn_open_review.clicked.connect(self._open_review_dir)
-        quick_layout.addWidget(self.btn_open_review)
+        self.quick_layout.addWidget(self.btn_open_review)
 
         self.btn_open_report = QPushButton("查看詳細報告", self)
-        self.btn_open_report.setEnabled(False)
         self.btn_open_report.clicked.connect(self._open_report_file)
-        quick_layout.addWidget(self.btn_open_report)
-        quick_layout.addStretch()
+        self.quick_layout.addWidget(self.btn_open_report)
+        self.quick_layout.addStretch()
 
-        res_layout.addLayout(quick_layout)
-        main_layout.addWidget(res_group)
+        details_layout.addLayout(self.quick_layout)
+        self.res_layout.addWidget(self.widget_res_details)
 
+        # 預設隱藏結果詳細內容
+        self.widget_res_details.hide()
+
+        main_layout.addWidget(self.res_group)
+
+    def _update_stepper(self, stage: int, error_stage: int = 0) -> None:
+        """
+        stage:
+            0: 尚未開始
+            1: 分析中
+            2: 整理中
+            3: 驗證中
+            4: 完成
+        error_stage:
+            若大於 0 則在該階段標記 !
+        """
+        s1 = "○"
+        s2 = "○"
+        s3 = "○"
+
+        if stage == 1:
+            s1 = "●"
+        elif stage == 2:
+            s1 = "✓"
+            s2 = "●"
+        elif stage == 3:
+            s1 = "✓"
+            s2 = "✓"
+            s3 = "●"
+        elif stage == 4:
+            s1 = "✓"
+            s2 = "✓"
+            s3 = "✓"
+
+        if error_stage == 1:
+            s1 = "!"
+        elif error_stage == 2:
+            s2 = "!"
+        elif error_stage == 3:
+            s3 = "!"
+
+        html = (
+            f"<span style='color: #2e7d32; font-weight: bold;'>{s1}</span> 分析資料"
+            f" &nbsp;───────&nbsp; "
+            f"<span style='color: #2e7d32; font-weight: bold;'>{s2}</span> 整理檔案"
+            f" &nbsp;───────&nbsp; "
+            f"<span style='color: #2e7d32; font-weight: bold;'>{s3}</span> 驗證結果"
+        )
+        self.lbl_stepper.setTextFormat(Qt.TextFormat.RichText)
+        self.lbl_stepper.setText(html)
 
     def _choose_zips(self) -> None:
         files, _ = QFileDialog.getOpenFileNames(
@@ -288,16 +379,14 @@ class MainWindow(QMainWindow):
         if not files:
             return
         
-        added_count = 0
         for f in files:
             p = Path(f).resolve()
             if p not in self.sources and p.is_file() and p.suffix.lower() == ".zip":
                 self.sources.append(p)
                 size_str = format_file_size(p.stat().st_size)
-                item = QListWidgetItem(f"{p.name} ({size_str})")
+                item = QListWidgetItem(f"{p.name}    ({size_str})")
                 item.setData(Qt.ItemDataRole.UserRole, str(p))
                 self.src_list.addItem(item)
-                added_count += 1
         
         self._update_source_status()
         self._update_action_state()
@@ -315,31 +404,24 @@ class MainWindow(QMainWindow):
         self._update_source_status()
         self._update_action_state()
 
-    def _clear_all(self) -> None:
-        self.sources.clear()
-        self.src_list.clear()
-        self._update_source_status()
-        self._update_action_state()
-
     def _update_source_status(self) -> None:
         count = len(self.sources)
         if count == 0:
-            self.lbl_src_status.setText("尚未選取任何 Takeout ZIP")
-            self.lbl_src_status.setStyleSheet("color: #666;")
+            self.lbl_src_count.setText("尚未選取 ZIP")
+            self.btn_remove.setEnabled(False)
         elif count == 1:
-            self.lbl_src_status.setText(
-                "已選取 1 個 Takeout ZIP。（提示：如果這批 Google Takeout 有多個分卷，建議一次選取所有 ZIP，以提高中繼資料配對完整度。）"
-            )
-            self.lbl_src_status.setStyleSheet("color: #b78103;")
+            self.lbl_src_count.setText("已選取 1 個 ZIP")
+            self.btn_remove.setEnabled(True)
         else:
-            self.lbl_src_status.setText(f"已選取 {count} 個 Takeout ZIP。")
-            self.lbl_src_status.setStyleSheet("color: #2e7d32; font-weight: bold;")
+            self.lbl_src_count.setText(f"已選取 {count} 個 ZIP")
+            self.btn_remove.setEnabled(True)
 
     def _choose_output(self) -> None:
-        dir_selected = QFileDialog.getExistingDirectory(self, "選擇輸出資料夾")
+        dir_selected = QFileDialog.getExistingDirectory(self, "選擇輸出位置")
         if dir_selected:
             self.output_dir = Path(dir_selected).resolve()
             self.txt_output.setText(str(self.output_dir))
+            self.txt_output.setToolTip(str(self.output_dir))
             self._update_action_state()
 
     def _update_action_state(self) -> None:
@@ -351,7 +433,7 @@ class MainWindow(QMainWindow):
         self.btn_start.setEnabled(can_start)
         self.btn_add_zip.setEnabled(not is_running)
         self.btn_add_more.setEnabled(not is_running)
-        self.btn_remove.setEnabled(not is_running)
+        self.btn_remove.setEnabled(len(self.sources) > 0 and not is_running)
         self.btn_choose_out.setEnabled(not is_running)
 
     def _start_task(self, analyze_only: bool = False) -> None:
@@ -361,11 +443,9 @@ class MainWindow(QMainWindow):
             return
 
         self._update_action_state()
-        self.txt_summary.clear()
-        self.btn_open_out.setEnabled(False)
-        self.btn_open_review.setEnabled(False)
-        self.btn_open_report.setEnabled(False)
-        self.lbl_steps.setText("分析資料  ●      整理檔案  ○      驗證結果  ○")
+        self.lbl_res_placeholder.show()
+        self.widget_res_details.hide()
+        self._update_stepper(stage=1)
 
         assert self.output_dir is not None
         self.worker = WorkerThread(self.sources, self.output_dir, analyze_only=analyze_only)
@@ -376,16 +456,9 @@ class MainWindow(QMainWindow):
         self.worker.start()
         self._update_action_state()
 
-    def _on_stage_changed(self, text: str) -> None:
+    def _on_stage_changed(self, text: str, stage_idx: int) -> None:
         self.lbl_stage.setText(text)
-        if "分析" in text:
-            self.lbl_steps.setText("分析資料  ●      整理檔案  ○      驗證結果  ○")
-        elif "整理" in text and "完成" not in text:
-            self.lbl_steps.setText("分析資料  ✓      整理檔案  ●      驗證結果  ○")
-        elif "驗證" in text:
-            self.lbl_steps.setText("分析資料  ✓      整理檔案  ✓      驗證結果  ●")
-        elif "完成" in text:
-            self.lbl_steps.setText("分析資料  ✓      整理檔案  ✓      驗證結果  ✓")
+        self._update_stepper(stage=stage_idx)
 
     def _on_progress_mode(self, is_busy: bool) -> None:
         if is_busy:
@@ -393,7 +466,6 @@ class MainWindow(QMainWindow):
         else:
             self.progress_bar.setRange(0, 100)
             self.progress_bar.setValue(100)
-
 
     def _on_finished_success(self, data: dict) -> None:
         self.worker = None
@@ -411,45 +483,62 @@ class MainWindow(QMainWindow):
 
         review_count = 0
         if not is_analyze and self.output_dir:
-            review_dir = self.output_dir / "Review"
+            # 支援繁體中文「待人工確認」與舊式「Review」資料夾
+            review_dir = self.output_dir / "待人工確認"
+            if not review_dir.exists():
+                review_dir = self.output_dir / "Review"
             if review_dir.exists():
                 review_count = sum(1 for p in review_dir.rglob("*") if p.is_file())
         else:
             review_count = sum(
                 1 for r in manifest.get("media_records", [])
-                if r.get("planned_output_path", "").startswith("Review/")
+                if r.get("planned_output_path", "").startswith("待人工確認/")
+                or r.get("planned_output_path", "").startswith("Review/")
             )
 
-        lines = [
-            f"照片 {summary.get('photos', 0)}       影片 {summary.get('videos', 0)}       中繼資料 {summary.get('json_matched', 0)}",
-        ]
+        # 展開結果區域
+        self.lbl_res_placeholder.hide()
+        self.widget_res_details.show()
 
+        # 第一行：媒體統計
+        photos = summary.get("photos", 0)
+        videos = summary.get("videos", 0)
+        matched_json = summary.get("json_matched", 0)
+        self.lbl_stats_media.setText(
+            f"照片 <b>{photos}</b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"
+            f"影片 <b>{videos}</b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"
+            f"中繼資料 <b>{matched_json}</b>"
+        )
+
+        # 第二行：驗證與人工確認
         if verification:
             v_ok = verification.get("verified", 0)
             v_fail = verification.get("failed", 0)
             if verification.get("result") == "PASS":
-                lines.append(f"✓ 驗證成功 {v_ok}             ⚠ 需確認 {review_count}")
+                v_text = f"<span style='color: #2e7d32;'>✓ 驗證成功 {v_ok}</span>"
             else:
-                lines.append(f"⚠ 驗證異常 (失敗 {v_fail} / 成功 {v_ok})     需確認 {review_count}")
+                v_text = f"<span style='color: #c62828;'>⚠ 驗證異常 (失敗 {v_fail} / 成功 {v_ok})</span>"
         else:
-            lines.append(f"狀態：{title_msg}             需確認 {review_count}")
+            v_text = f"狀態：{title_msg}"
 
-        if summary.get("unknown_date", 0) > 0:
-            lines.append(f"無法判定日期：{summary.get('unknown_date', 0)}")
-
-        self.txt_summary.setText("\n".join(lines))
-
-
-        if not is_analyze and self.output_dir and self.output_dir.exists():
-            self.btn_open_out.setEnabled(True)
         if review_count > 0:
+            r_text = f"<span style='color: #d97706;'>⚠ 需人工確認 {review_count}</span>"
+            self.btn_open_review.show()
             self.btn_open_review.setEnabled(True)
         else:
-            self.btn_open_review.setEnabled(False)
+            r_text = "<span style='color: #555555;'>需人工確認 0</span>"
+            self.btn_open_review.hide()
+
+        self.lbl_stats_verify.setText(f"{v_text}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{r_text}")
+
+        # 快捷按鈕啟用
+        if not is_analyze and self.output_dir and self.output_dir.exists():
+            self.btn_open_out.setEnabled(True)
 
         report_file = work_dir / "report.html"
-        if report_file.exists():
-            self.btn_open_report.setEnabled(True)
+        self.btn_open_report.setEnabled(report_file.exists())
+
+        self.lbl_stage.setText(f"✓ {title_msg}")
 
         if verification and verification.get("result") != "PASS":
             QMessageBox.critical(
@@ -460,10 +549,11 @@ class MainWindow(QMainWindow):
         else:
             QMessageBox.information(self, "完成", f"Google Takeout {title_msg}！")
 
-    def _on_finished_error(self, message: str, traceback_str: str) -> None:
+    def _on_finished_error(self, message: str, traceback_str: str, error_stage: int) -> None:
         self.worker = None
         self._update_action_state()
-        self.lbl_stage.setText("處理失敗")
+        self.lbl_stage.setText("整理過程發生問題")
+        self._update_stepper(stage=error_stage, error_stage=error_stage)
 
         try:
             log_dir = self.output_dir or Path.cwd()
@@ -472,11 +562,15 @@ class MainWindow(QMainWindow):
         except Exception:
             pass
 
-        QMessageBox.critical(
-            self,
-            "處理錯誤",
-            f"處理過程中發生錯誤：\n{message}\n\n已將詳細錯誤記錄保存至工作日誌。",
-        )
+        # 結構化錯誤視窗：上半部繁中簡明摘要，可展開查看 traceback
+        msg_box = QMessageBox(self)
+        msg_box.setIcon(QMessageBox.Icon.Critical)
+        msg_box.setWindowTitle("處理錯誤")
+        msg_box.setText(f"處理過程中發生錯誤：\n{message}")
+        msg_box.setInformativeText("已將錯誤記錄保存至工作日誌。若需要排查問題，請點擊下方「顯示詳細資料」。")
+        msg_box.setDetailedText(traceback_str)
+        msg_box.setStandardButtons(QMessageBox.StandardButton.Ok)
+        msg_box.exec()
 
     def _open_output_dir(self) -> None:
         if self.output_dir and self.output_dir.exists():
@@ -487,7 +581,9 @@ class MainWindow(QMainWindow):
 
     def _open_review_dir(self) -> None:
         if self.output_dir:
-            review_dir = self.output_dir / "Review"
+            review_dir = self.output_dir / "待人工確認"
+            if not review_dir.exists():
+                review_dir = self.output_dir / "Review"
             if review_dir.exists():
                 if sys.platform == "win32":
                     os.startfile(str(review_dir))

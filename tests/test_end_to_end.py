@@ -204,4 +204,68 @@ def test_gui_helpers_and_translations(tmp_path):
     out_valid = tmp_path / "clean_output"
     assert validate_paths([tmp_path / "a.zip"], out_valid) is None
 
+def test_gui_workflow_smoke(tmp_path):
+    import time
+    from PySide6.QtWidgets import QApplication, QMessageBox
+    from google_photos_takeout_organizer.gui import MainWindow
+
+    # 1. Create a minimal test ZIP
+    zip_path = tmp_path / "sample.zip"
+    with zipfile.ZipFile(zip_path, "w") as z:
+        img_temp = tmp_path / "temp_sm.jpg"
+        Image.new("RGB", (4, 4), (120, 150, 180)).save(img_temp)
+        z.write(img_temp, "Google Photos/Photos from 2023/sample.jpg")
+        z.writestr("Google Photos/Photos from 2023/sample.jpg.json", json.dumps({
+            "photoTakenTime": {"timestamp": "1683700000"}
+        }))
+
+    out_dir = tmp_path / "gui_out"
+    out_dir.mkdir()
+
+    app = QApplication.instance() or QApplication([])
+    win = MainWindow()
+    win.show()
+
+    # Avoid modal blocking in automated test
+    QMessageBox.information = lambda *args: None
+    QMessageBox.warning = lambda *args: None
+    QMessageBox.critical = lambda *args: None
+
+    # Step 1: Add ZIP
+    win.sources = [zip_path]
+    win._update_source_status()
+    assert "已選取 1 個 ZIP" in win.lbl_src_count.text()
+    assert not win.widget_res_details.isVisible()
+    assert win.lbl_res_placeholder.isVisible()
+
+    # Step 2: Set output
+    win.output_dir = out_dir
+    win.txt_output.setText(str(out_dir))
+    win._update_action_state()
+    assert win.btn_start.isEnabled()
+
+    # Step 3: Run pipeline
+    win._start_task(analyze_only=False)
+    assert win.worker is not None
+
+    # Wait for completion
+    timeout = 10
+    start = time.time()
+    while win.worker is not None and win.worker.isRunning() and (time.time() - start) < timeout:
+        app.processEvents()
+        time.sleep(0.05)
+    app.processEvents()
+
+    # Step 4: Verify UI state progression and results
+    assert win.widget_res_details.isVisible()
+    assert not win.lbl_res_placeholder.isVisible()
+    assert "驗證成功 1" in win.lbl_stats_verify.text()
+    assert "照片 <b>1</b>" in win.lbl_stats_media.text()
+    assert win.btn_open_out.isEnabled()
+
+    # Step 5: Verify disk output exists
+    exported_photo = out_dir / "Photos_Archive" / "2023" / "05" / "sample.jpg"
+    assert exported_photo.exists()
+    assert (out_dir / "verification.json").exists()
+
 

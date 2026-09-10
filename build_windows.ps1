@@ -8,13 +8,18 @@ $TargetName = "Google-Photos-Takeout-Organizer-v1.0.0-Windows-x64"
 $TargetDir = Join-Path $DistDir $TargetName
 $ExeName = "Google Photos Takeout 整理工具.exe"
 
+function Safe-RemoveDir($dirPath) {
+    if (Test-Path $dirPath) {
+        $tempEmpty = New-Item -ItemType Directory -Path "$env:TEMP\empty_del_$([guid]::NewGuid().ToString('N'))" -Force
+        robocopy $tempEmpty.FullName $dirPath /MIR /NFL /NDL /NJH /NJS /nc /ns /np | Out-Null
+        Remove-Item $dirPath -Force -Recurse
+        Remove-Item $tempEmpty.FullName -Force
+    }
+}
+
 Write-Host "=== 1. 清理舊有打包暫存 ==="
-if (Test-Path $BuildDir) {
-    Remove-Item -Recurse -Force $BuildDir
-}
-if (Test-Path $TargetDir) {
-    Remove-Item -Recurse -Force $TargetDir
-}
+Safe-RemoveDir $BuildDir
+Safe-RemoveDir $TargetDir
 
 Write-Host "=== 2. 執行 PyInstaller onedir 打包 ==="
 $EntryScript = Join-Path $ProjectRoot "src\google_photos_takeout_organizer\gui.py"
@@ -61,7 +66,6 @@ $ReadmeLines = @(
 $ReadmeContent = $ReadmeLines -join "`r`n"
 $ReadmePath = Join-Path $TargetDir "使用說明.txt"
 [System.IO.File]::WriteAllText($ReadmePath, $ReadmeContent, [System.Text.Encoding]::UTF8)
-
 
 Write-Host "=== 4. 計算產物 SHA-256 Checksum ==="
 $Hash = (Get-FileHash -Path $ExePath -Algorithm SHA256).Hash

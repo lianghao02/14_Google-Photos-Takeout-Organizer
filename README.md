@@ -71,32 +71,35 @@ Output directory: `dist\Google-Photos-Takeout-Organizer-v1.0.0-Windows-x64\`
 - Fully portable: no Python installation required on the target machine.
 
 ### GUI Workflow
-1. **① Takeout 檔案**：點擊「選擇 ZIP」或「加入更多」，選取一或多個 Google Takeout 壓縮檔（支援跨卷 Sidecar 配對）。
-2. **② 整理到**：點擊「選擇」指定整理目標資料夾。
-3. **③ 開始整理**：點擊單一醒目的「開始整理」按鈕，系統將依序自動執行：
+1. **來源檔案**：點擊「選擇 ZIP」或「加入更多」，選取一或多個 Google Takeout 壓縮檔（支援跨分卷中繼資料配對）。
+2. **輸出位置**：點擊「選擇」指定整理目標資料夾。
+3. **安全特性**：內建固定保證「✓ 原始 Takeout 不會被移動或刪除」。
+4. **開始整理**：點擊中央醒目的「開始整理」主要按鈕，系統將依序自動執行：
    - `分析資料` (Analyze)
    - `整理檔案` (Export, Copy-only)
    - `驗證結果` (Verify, SHA-256)
-4. **④ 查看結果與人工確認**：整理完成後可直接點選「開啟整理結果」或「開啟人工確認資料夾」檢視需人工核對之項目。
+5. **整理結果與快捷動作**：完成後展開完整統計卡片，並可直接點擊「開啟整理結果」、「開啟人工確認」或「查看詳細報告」。
 
 ## Output Structure
 
 ```
 <output>/
-├── Photos_Archive/
+├── Photos_Archive/    # 主要照片與影片歸檔
 │   └── YYYY/
 │       ├── MM/
 │       │   ├── photo.jpg
 │       │   └── photo.jpg.supplemental-metadata.json
 │       └── Unknown-Month/
-├── Duplicates/
+├── Duplicates/        # 內容相同之重複檔案
 │   └── YYYY/
 │       └── MM/
 │           └── photo__dup001.jpg
-├── Review/            # Files with date conflicts or ambiguous sidecars
-├── Unknown-Date/       # Files with no determinable date
-├── manifest.json      # Complete trace of all input files, hashes, and destinations
-└── verification.json  # Export verification report
+├── Review/            # 待人工確認（日期衝突、多重中繼資料）
+│   ├── Date-Conflict/
+│   └── Ambiguous-Sidecar/
+├── Unknown-Date/       # 未判定日期
+├── manifest.json      # 完整整理清冊（來源、雜湊、對應路徑）
+└── verification.json  # 匯出完整性驗證報告 (SHA-256)
 ```
 
 Copy-only safety guarantee: original inputs are never modified, deleted, moved, or overwritten. EXIF metadata is never rewritten and media files are never recompressed or transcoded.
