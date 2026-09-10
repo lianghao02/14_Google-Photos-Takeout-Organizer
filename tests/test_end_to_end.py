@@ -103,3 +103,73 @@ def test_heic_metadata_fallback(tmp_path):
     fake_heic.write_bytes(b"not a real heic file")
     w, h, dt, status = image_metadata(fake_heic)
     assert status == "CORRUPT_OR_UNSUPPORTED" and dt is None
+
+def test_exif_ifd_datetimeoriginal_and_timezone_matching():
+    from google_photos_takeout_organizer.models import MediaRecord
+    from google_photos_takeout_organizer.date_resolver import resolve
+    from google_photos_takeout_organizer.planner import plan
+
+    # 1. UTC JSON vs Local EXIF with +8h offset
+    r1 = MediaRecord("1", "a1", "p1", "p1", "IMG_2073.JPG", ".jpg", 100, "photo",
+                     json_date="2018-03-31T23:19:29Z", exif_date="2018-04-01T07:19:29")
+    resolve(r1)
+    assert "DATE_CONFLICT" not in r1.warnings
+    assert r1.resolved_date == "2018-04-01T07:19:29"
+    assert r1.date_confidence == "HIGH"
+    plan([r1])
+    assert r1.planned_output_path == "Photos_Archive/2018/04/IMG_2073.JPG"
+
+    # 2. Genuine DATE_CONFLICT -> goes to Review/Date-Conflict
+    r2 = MediaRecord("2", "a1", "p2", "p2", "conflict.jpg", ".jpg", 100, "photo",
+                     json_date="2020-01-01T10:00:00Z", exif_date="2020-01-02T09:00:00")
+    resolve(r2)
+    assert "DATE_CONFLICT" in r2.warnings
+    assert r2.resolved_date is None
+    plan([r2])
+    assert r2.planned_output_path == "Review/Date-Conflict/conflict.jpg"
+
+    # 3. Truly unknown date -> goes to Unknown-Date
+    r3 = MediaRecord("3", "a1", "p3", "p3", "no_date.jpg", ".jpg", 100, "photo")
+    resolve(r3)
+    assert "NO_DATE" in r3.warnings
+    assert r3.resolved_date is None
+    plan([r3])
+    assert r3.planned_output_path == "Unknown-Date/no_date.jpg"
+
+def test_sidecar_exported_alongside_media(tmp_path):
+    source = tmp_path / "src"
+    source.mkdir()
+    media_file = source / "photo.jpg"
+    media_file.write_bytes(b"image data here")
+    sidecar_file = source / "photo.jpg.supplemental-metadata.json"
+    sidecar_file.write_text('{"description": "family vacation"}', encoding="utf-8")
+
+    from google_photos_takeout_organizer.models import MediaRecord
+    from google_photos_takeout_organizer.planner import plan
+    from google_photos_takeout_organizer.exporter import export
+    from google_photos_takeout_organizer.utils import sha256
+
+    record = MediaRecord(
+        id="rec1", archive_id="a1", source_path=str(media_file), relative_path="photo.jpg",
+        original_filename="photo.jpg", extension=".jpg", size=len(media_file.read_bytes()),
+        media_type="photo", sha256=sha256(media_file), json_path=str(sidecar_file),
+        json_status="MATCHED", resolved_date="2021-05-10"
+    )
+    plan([record])
+    manifest_data = {
+        "media_records": [record.to_dict()],
+        "duplicate_groups": [],
+        "summary": {}
+    }
+    m_path = tmp_path / "manifest.json"
+    m_path.write_text(json.dumps(manifest_data), encoding="utf-8")
+
+    out = tmp_path / "out"
+    export(m_path, out)
+
+    exported_media = out / "Photos_Archive" / "2021" / "05" / "photo.jpg"
+    exported_sidecar = out / "Photos_Archive" / "2021" / "05" / "photo.jpg.supplemental-metadata.json"
+    assert exported_media.exists()
+    assert exported_sidecar.exists()
+    assert json.loads(exported_sidecar.read_text(encoding="utf-8"))["description"] == "family vacation"
+
