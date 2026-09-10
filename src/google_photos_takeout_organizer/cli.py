@@ -5,8 +5,12 @@ from .service import analyze
 from .exporter import export
 from .verifier import verify
 
+from . import __version__
+
 def main() -> None:
-    parser = argparse.ArgumentParser(prog="gpto"); commands = parser.add_subparsers(dest="command", required=True)
+    parser = argparse.ArgumentParser(prog="gpto")
+    parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
+    commands = parser.add_subparsers(dest="command", required=True)
     a = commands.add_parser("analyze"); a.add_argument("inputs", nargs="+"); a.add_argument("--work", default="work")
     e = commands.add_parser("export"); e.add_argument("--manifest", required=True); e.add_argument("--output", required=True)
     v = commands.add_parser("verify"); v.add_argument("--manifest", required=True); v.add_argument("--output", required=True)
