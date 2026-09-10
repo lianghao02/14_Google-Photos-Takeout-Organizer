@@ -173,3 +173,35 @@ def test_sidecar_exported_alongside_media(tmp_path):
     assert exported_sidecar.exists()
     assert json.loads(exported_sidecar.read_text(encoding="utf-8"))["description"] == "family vacation"
 
+def test_gui_helpers_and_translations(tmp_path):
+    from google_photos_takeout_organizer.gui import (
+        translate_warning,
+        validate_paths,
+        format_file_size,
+    )
+
+    # 1. Warning translations
+    assert translate_warning("DATE_CONFLICT") == "拍攝日期來源不一致，需要人工確認"
+    assert translate_warning("MEDIA_WITHOUT_JSON") == "找不到對應的中繼資料"
+    assert "未知" in translate_warning("UNKNOWN_CUSTOM_CODE") or "需要注意" in translate_warning("UNKNOWN_CUSTOM_CODE")
+
+    # 2. File size formatting
+    assert format_file_size(500) == "500 B"
+    assert "KB" in format_file_size(2048)
+    assert "MB" in format_file_size(5 * 1024 * 1024)
+    assert "GB" in format_file_size(2 * 1024 * 1024 * 1024)
+
+    # 3. Path validation
+    assert "至少選取一個" in validate_paths([], tmp_path / "out")
+    assert "指定輸出資料夾" in validate_paths([tmp_path / "a.zip"], None)
+
+    # Output same as source
+    src_dir = tmp_path / "takeout_dir"
+    src_dir.mkdir()
+    assert "不可位於來源資料夾內部" in validate_paths([src_dir], src_dir / "sub_out")
+
+    # Valid scenario
+    out_valid = tmp_path / "clean_output"
+    assert validate_paths([tmp_path / "a.zip"], out_valid) is None
+
+

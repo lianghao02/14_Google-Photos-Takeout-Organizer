@@ -49,6 +49,36 @@ python -m google_photos_takeout_organizer.cli export --manifest work\manifest.js
 python -m google_photos_takeout_organizer.cli verify --manifest E:\GooglePhotos_Archive\manifest.json --output E:\GooglePhotos_Archive
 ```
 
+## Graphical User Interface (GUI)
+
+A clean, workflow-oriented desktop GUI is included for Windows users without needing command-line knowledge.
+
+### Running via Python / Repository
+Double-click `RUN.bat` or run:
+```powershell
+python -m google_photos_takeout_organizer.gui
+# or via registered script:
+gpto-gui
+```
+
+### Windows Portable (免安裝綠色版)
+A standalone portable distribution for Windows x64 can be built using:
+```powershell
+.\build_windows.ps1
+```
+Output directory: `dist\Google-Photos-Takeout-Organizer-v1.0.0-Windows-x64\`
+- Contains `Google Photos Takeout 整理工具.exe` (no console window, standalone PySide6 runtime).
+- Fully portable: no Python installation required on the target machine.
+
+### GUI Workflow
+1. **① Takeout 檔案**：點擊「選擇 ZIP」或「加入更多」，選取一或多個 Google Takeout 壓縮檔（支援跨卷 Sidecar 配對）。
+2. **② 整理到**：點擊「選擇」指定整理目標資料夾。
+3. **③ 開始整理**：點擊單一醒目的「開始整理」按鈕，系統將依序自動執行：
+   - `分析資料` (Analyze)
+   - `整理檔案` (Export, Copy-only)
+   - `驗證結果` (Verify, SHA-256)
+4. **④ 查看結果與人工確認**：整理完成後可直接點選「開啟整理結果」或「開啟人工確認資料夾」檢視需人工核對之項目。
+
 ## Output Structure
 
 ```
@@ -56,7 +86,8 @@ python -m google_photos_takeout_organizer.cli verify --manifest E:\GooglePhotos_
 ├── Photos_Archive/
 │   └── YYYY/
 │       ├── MM/
-│       │   └── photo.jpg
+│       │   ├── photo.jpg
+│       │   └── photo.jpg.supplemental-metadata.json
 │       └── Unknown-Month/
 ├── Duplicates/
 │   └── YYYY/
@@ -68,4 +99,4 @@ python -m google_photos_takeout_organizer.cli verify --manifest E:\GooglePhotos_
 └── verification.json  # Export verification report
 ```
 
-Run `RUN.bat` for the graphical user interface. Analyze never rewrites EXIF, recompresses images, or transcodes videos.
+Copy-only safety guarantee: original inputs are never modified, deleted, moved, or overwritten. EXIF metadata is never rewritten and media files are never recompressed or transcoded.
