@@ -1,6 +1,7 @@
 from __future__ import annotations
 import json, logging, uuid
 from pathlib import Path
+from typing import Callable
 from .archive import extract_zip
 from .scanner import scan
 from .matcher import match
@@ -11,9 +12,11 @@ from .planner import plan
 from .report import write_report
 
 log = logging.getLogger(__name__)
-def analyze(inputs: list[Path], work: Path) -> dict:
+def analyze(inputs: list[Path], work: Path, cancel_requested: Callable[[], bool] | None = None) -> dict:
     work.mkdir(parents=True, exist_ok=True); extracted = work / "extracted"; records = []; jsons = []; archives = []; warnings = []
     for index, source in enumerate(inputs, 1):
+        if cancel_requested and cancel_requested():
+            raise InterruptedError("CANCELLED")
         archive_id = f"archive_{index:03d}"; root = source
         if source.suffix.lower() == ".zip": root = extracted / archive_id; warnings.extend(extract_zip(source, root))
         archives.append({"archive_id": archive_id, "source": str(source), "root": str(root)})

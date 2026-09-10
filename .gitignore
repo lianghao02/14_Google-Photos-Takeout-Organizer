@@ -1,4 +1,5 @@
 work/
+.gpto_work/
 output/
 takeout/
 *.zip

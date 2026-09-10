@@ -269,6 +269,6 @@ def test_gui_workflow_smoke(tmp_path):
     assert (out_dir / "verification.json").exists()
     assert (out_dir / "manifest.json").exists()
     assert (out_dir / "report.html").exists()
-    assert not (out_dir / ".gpto_work").exists(), ".gpto_work should be safely cleaned up on PASS"
+    assert (out_dir / ".gpto_work" / "session.json").exists(), "完成後應保留暫存資料供使用者自行決定是否清除"
 
 

@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- 新增大容量 Takeout 的 session 型安全續作、合作式取消，以及輸出與 Sidecar SHA-256 衝突保護。
+- GUI 新增 ZIP 拖曳、處理數量／目前檔名、磁碟空間預檢、整理下一批與完成後手動清除暫存資料。
+
 ## 1.0.1
 
 - 修正 EXIF DateTimeOriginal 讀取方式（透過 Exif IFD 精確獲取真實拍攝時間，避免誤取檔案修改時間）。

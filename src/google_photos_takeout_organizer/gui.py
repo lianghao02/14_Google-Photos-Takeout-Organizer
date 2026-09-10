@@ -28,6 +28,8 @@ from PySide6.QtWidgets import (
 from .service import analyze
 from .exporter import export
 from .verifier import verify
+from .exporter import SafetyConflictError
+from .session import WorkflowState, create_session, is_incomplete_session, load_session, safe_temp_target, save_session, sources_match
 
 
 WARNING_TRANSLATIONS: dict[str, str] = {
@@ -83,23 +85,45 @@ class WorkerThread(QThread):
     progress_mode = Signal(bool)
     finished_success = Signal(dict)
     finished_error = Signal(str, str, int)
+    cancelled = Signal(dict)
+    progress_changed = Signal(str, int, int, str)
 
-    def __init__(self, sources: list[Path], output_dir: Path, analyze_only: bool = False) -> None:
+    def __init__(self, sources: list[Path], output_dir: Path, analyze_only: bool = False, session: dict | None = None) -> None:
         super().__init__()
         self.sources = sources
         self.output_dir = output_dir
         self.analyze_only = analyze_only
         self._is_cancelled = False
+        self.session = session or create_session(sources, output_dir)
+
+    def request_cancel(self) -> None:
+        self._is_cancelled = True
+        self.session["status"] = WorkflowState.CANCEL_REQUESTED
+        save_session(self.output_dir, self.session)
+
+    def _cancelled_result(self, work_dir: Path, manifest: dict | None = None) -> None:
+        self.session.update({"status": WorkflowState.CANCELLED, "cancelled": True, "completed": False})
+        save_session(self.output_dir, self.session)
+        self.progress_mode.emit(False)
+        self.cancelled.emit({"manifest": manifest or {}, "work_dir": str(work_dir)})
 
     def run(self) -> None:
         current_stage = 1
         try:
             work_dir = self.output_dir / ".gpto_work"
             
-            current_stage = 1
-            self.stage_changed.emit("正在分析 Takeout 檔案...", 1)
-            self.progress_mode.emit(True)
-            manifest = analyze(self.sources, work_dir)
+            manifest_path = work_dir / "manifest.json"
+            if not self.session.get("analyze_completed", False):
+                current_stage = 1
+                self.session.update({"status": WorkflowState.RUNNING_ANALYZE, "current_stage": "ANALYZE", "cancelled": False})
+                save_session(self.output_dir, self.session)
+                self.stage_changed.emit("正在分析 Takeout 檔案…", 1)
+                self.progress_mode.emit(True)
+                manifest = analyze(self.sources, work_dir, cancel_requested=lambda: self._is_cancelled)
+                self.session["analyze_completed"] = True
+                save_session(self.output_dir, self.session)
+            else:
+                manifest = __import__("json").loads(manifest_path.read_text(encoding="utf-8"))
             
             if self.analyze_only:
                 self.stage_changed.emit("分析完成", 4)
@@ -108,20 +132,40 @@ class WorkerThread(QThread):
                 return
 
             if self._is_cancelled:
-                return
+                self._cancelled_result(work_dir, manifest); return
 
             current_stage = 2
-            self.stage_changed.emit("正在整理照片與影片...", 2)
-            export_result = export(work_dir / "manifest.json", self.output_dir)
+            if self.session.get("export_completed", False):
+                export_result = __import__("json").loads((self.output_dir / "manifest.json").read_text(encoding="utf-8"))
+            else:
+                required = sum(int(record.get("size", 0)) for record in manifest.get("media_records", []))
+                required += sum(path.stat().st_size for path in work_dir.rglob("*") if path.is_file())
+                if shutil.disk_usage(self.output_dir).free < required:
+                    raise RuntimeError("分析完成，但目前剩餘空間不足以安全完成整理。")
+                self.session.update({"status": WorkflowState.RUNNING_EXPORT, "current_stage": "EXPORT"})
+                save_session(self.output_dir, self.session)
+                self.stage_changed.emit("正在整理照片與影片…", 2)
+                self.progress_mode.emit(False)
+                export_result = export(manifest_path if manifest_path.exists() else self.output_dir / "manifest.json", self.output_dir, self._progress, lambda: self._is_cancelled)
+                if export_result.get("export_state") == "CANCELLED":
+                    self._cancelled_result(work_dir, export_result); return
+                self.session["export_completed"] = True
+                save_session(self.output_dir, self.session)
 
             if self._is_cancelled:
-                return
+                self._cancelled_result(work_dir, export_result); return
 
             current_stage = 3
-            self.stage_changed.emit("正在驗證整理結果...", 3)
-            verify_result = verify(self.output_dir / "manifest.json", self.output_dir)
+            self.session.update({"status": WorkflowState.RUNNING_VERIFY, "current_stage": "VERIFY"})
+            save_session(self.output_dir, self.session)
+            self.stage_changed.emit("正在驗證檔案…", 3)
+            verify_result = verify(self.output_dir / "manifest.json", self.output_dir, self._progress, lambda: self._is_cancelled)
+            if verify_result.get("result") == "CANCELLED":
+                self._cancelled_result(work_dir, export_result); return
+            self.session.update({"verify_completed": True, "completed": verify_result.get("result") == "PASS", "cancelled": False, "status": WorkflowState.COMPLETED if verify_result.get("result") == "PASS" else WorkflowState.FAILED})
+            save_session(self.output_dir, self.session)
 
-            # 只有在全部成功且已寫入正式檔案時，才自動安全清理 .gpto_work
+            # report is preserved in formal output; temporary data remains until user clears it.
             if (
                 not self._is_cancelled
                 and verify_result.get("result") == "PASS"
@@ -138,12 +182,6 @@ class WorkerThread(QThread):
                     except Exception:
                         pass
 
-                # 安全清理暫存工作區
-                try:
-                    shutil.rmtree(work_dir, ignore_errors=True)
-                except Exception:
-                    pass
-
             current_stage = 4
             self.stage_changed.emit("整理完成", 4)
             self.progress_mode.emit(False)
@@ -153,11 +191,21 @@ class WorkerThread(QThread):
                 "analyze_only": False,
                 "work_dir": str(work_dir),
             })
+        except SafetyConflictError as exc:
+            self.session.update({"status": WorkflowState.SAFETY_CONFLICT, "completed": False})
+            save_session(self.output_dir, self.session)
+            self.progress_mode.emit(False)
+            self.finished_error.emit("偵測到既有輸出檔案與預期內容不同。為避免覆寫資料，已停止續作。", "", current_stage)
+        except InterruptedError:
+            self._cancelled_result(work_dir)
         except Exception as exc:
             import traceback
             tb = traceback.format_exc()
             self.progress_mode.emit(False)
             self.finished_error.emit(str(exc), tb, current_stage)
+
+    def _progress(self, stage: str, current: int, total: int, filename: str) -> None:
+        self.progress_changed.emit(stage, current, total, filename)
 
 
 class MainWindow(QMainWindow):
@@ -172,6 +220,9 @@ class MainWindow(QMainWindow):
         self.worker: WorkerThread | None = None
         self.last_work_dir: Path | None = None
         self.last_summary: dict[str, Any] | None = None
+        self.workflow_state = WorkflowState.READY
+        self.pending_close = False
+        self.setAcceptDrops(True)
 
         self._init_ui()
         self._update_action_state()
@@ -276,6 +327,11 @@ class MainWindow(QMainWindow):
         cta_layout.addStretch()
         main_layout.addLayout(cta_layout)
 
+        self.btn_cancel = QPushButton("取消整理", self)
+        self.btn_cancel.clicked.connect(self._request_cancel)
+        self.btn_cancel.hide()
+        cta_layout.addWidget(self.btn_cancel)
+
         # 6. 處理進度區塊 (現代化 Stepper)
         progress_group = QGroupBox("處理進度", self)
         prog_layout = QVBoxLayout(progress_group)
@@ -297,6 +353,10 @@ class MainWindow(QMainWindow):
         self.lbl_stage = QLabel("就緒", self)
         self.lbl_stage.setStyleSheet("color: #444444; font-size: 12px; margin-top: 2px;")
         prog_layout.addWidget(self.lbl_stage)
+        self.lbl_current_file = QLabel("", self)
+        self.lbl_current_file.setStyleSheet("color: #666666; font-size: 11px;")
+        self.lbl_current_file.setToolTip("")
+        prog_layout.addWidget(self.lbl_current_file)
 
         main_layout.addWidget(progress_group)
 
@@ -340,6 +400,13 @@ class MainWindow(QMainWindow):
         self.quick_layout.addStretch()
 
         details_layout.addLayout(self.quick_layout)
+        self.btn_next_batch = QPushButton("整理下一批", self)
+        self.btn_next_batch.clicked.connect(self._reset_next_batch)
+        details_layout.addWidget(self.btn_next_batch)
+        self.btn_clear_temp = QPushButton("清除暫存資料", self)
+        self.btn_clear_temp.clicked.connect(self._clear_temp)
+        details_layout.addWidget(self.btn_clear_temp)
+        self.btn_clear_temp.hide()
         self.res_layout.addWidget(self.widget_res_details)
 
         # 預設隱藏結果詳細內容
@@ -403,7 +470,11 @@ class MainWindow(QMainWindow):
         if not files:
             return
         
-        for f in files:
+        self._add_zip_paths([Path(f) for f in files])
+
+    def _add_zip_paths(self, paths: list[Path]) -> tuple[int, int]:
+        added = ignored = 0
+        for f in paths:
             p = Path(f).resolve()
             if p not in self.sources and p.is_file() and p.suffix.lower() == ".zip":
                 self.sources.append(p)
@@ -411,9 +482,13 @@ class MainWindow(QMainWindow):
                 item = QListWidgetItem(f"{p.name}    ({size_str})")
                 item.setData(Qt.ItemDataRole.UserRole, str(p))
                 self.src_list.addItem(item)
+                added += 1
+            elif p.suffix.lower() != ".zip":
+                ignored += 1
         
         self._update_source_status()
         self._update_action_state()
+        return added, ignored
 
     def _remove_selected(self) -> None:
         selected_items = self.src_list.selectedItems()
@@ -446,6 +521,7 @@ class MainWindow(QMainWindow):
             self.output_dir = Path(dir_selected).resolve()
             self.txt_output.setText(str(self.output_dir))
             self.txt_output.setToolTip(str(self.output_dir))
+            self._detect_resume()
             self._update_action_state()
 
     def _update_action_state(self) -> None:
@@ -453,12 +529,30 @@ class MainWindow(QMainWindow):
         has_sources = len(self.sources) > 0
         has_output = self.output_dir is not None
 
-        can_start = has_sources and has_output and not is_running
+        space_ok = self._disk_preflight_message() is None
+        can_start = has_sources and has_output and not is_running and space_ok
         self.btn_start.setEnabled(can_start)
         self.btn_add_zip.setEnabled(not is_running)
         self.btn_add_more.setEnabled(not is_running)
         self.btn_remove.setEnabled(len(self.sources) > 0 and not is_running)
         self.btn_choose_out.setEnabled(not is_running)
+        self.btn_cancel.setVisible(is_running)
+        self.btn_cancel.setEnabled(is_running)
+
+    def _disk_preflight_message(self) -> str | None:
+        if not self.output_dir or not self.sources:
+            return None
+        try:
+            estimate = sum(p.stat().st_size for p in self.sources) * 2.5
+            free = shutil.disk_usage(self.output_dir).free
+        except OSError:
+            return None
+        if free < estimate:
+            self.lbl_stage.setText("輸出磁碟可用空間可能不足，請改用其他磁碟或清理空間後再試。")
+            return "insufficient"
+        if free < estimate * 1.2:
+            self.lbl_stage.setText(f"可用空間較接近預估需求（約 {format_file_size(int(estimate))}），建議保留更多空間。")
+        return None
 
     def _start_task(self, analyze_only: bool = False) -> None:
         err = validate_paths(self.sources, self.output_dir)
@@ -472,11 +566,16 @@ class MainWindow(QMainWindow):
         self._update_stepper(stage=1)
 
         assert self.output_dir is not None
-        self.worker = WorkerThread(self.sources, self.output_dir, analyze_only=analyze_only)
+        session = load_session(self.output_dir)
+        if not (self.workflow_state == WorkflowState.RESUME_AVAILABLE and session):
+            session = create_session(self.sources, self.output_dir)
+        self.worker = WorkerThread(self.sources, self.output_dir, analyze_only=analyze_only, session=session)
         self.worker.stage_changed.connect(self._on_stage_changed)
         self.worker.progress_mode.connect(self._on_progress_mode)
         self.worker.finished_success.connect(self._on_finished_success)
         self.worker.finished_error.connect(self._on_finished_error)
+        self.worker.cancelled.connect(self._on_cancelled)
+        self.worker.progress_changed.connect(self._on_progress)
         self.worker.start()
         self._update_action_state()
 
@@ -490,6 +589,65 @@ class MainWindow(QMainWindow):
         else:
             self.progress_bar.setRange(0, 100)
             self.progress_bar.setValue(100)
+
+    def _on_progress(self, stage: str, current: int, total: int, filename: str) -> None:
+        self.progress_bar.setRange(0, max(1, total))
+        self.progress_bar.setValue(current)
+        label = "正在整理照片與影片" if stage == "EXPORT" else "正在驗證檔案"
+        self.lbl_stage.setText(f"{label}：{current} / {total}")
+        self.lbl_current_file.setText(f"目前：{filename}")
+        self.lbl_current_file.setToolTip(filename)
+
+    def _request_cancel(self) -> None:
+        if not self.worker:
+            return
+        reply = QMessageBox.question(self, "確認取消", "目前正在整理資料，確定要取消嗎？\n\n已完成的檔案會保留，原始 Takeout 不會受到影響，之後可以繼續未完成的整理。", QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, QMessageBox.StandardButton.No)
+        if reply == QMessageBox.StandardButton.Yes:
+            self.worker.request_cancel()
+            self.workflow_state = WorkflowState.CANCEL_REQUESTED
+            self.lbl_stage.setText("正在安全停止，請稍候…")
+            self.btn_cancel.setEnabled(False)
+
+    def _on_cancelled(self, data: dict) -> None:
+        self.worker = None
+        self.workflow_state = WorkflowState.CANCELLED
+        self.lbl_stage.setText("整理已取消，可稍後繼續。")
+        self._update_action_state()
+        if self.pending_close:
+            self.close()
+
+    def _detect_resume(self) -> None:
+        if not self.output_dir:
+            return
+        session = load_session(self.output_dir)
+        if not is_incomplete_session(session):
+            return
+        if not sources_match(session):
+            QMessageBox.warning(self, "無法續作", "來源 Takeout ZIP 與上次整理工作不同，無法安全繼續。")
+            return
+        resumed_sources = [Path(str(item["path"])) for item in session["sources"]]
+        self.sources = []
+        self.src_list.clear()
+        self._add_zip_paths(resumed_sources)
+        self.workflow_state = WorkflowState.RESUME_AVAILABLE
+        reply = QMessageBox.question(self, "偵測到未完成工作", "偵測到上次未完成的整理工作。\n\n選擇「是」繼續上次整理；選擇「否」重新開始（不會刪除既有輸出）。", QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, QMessageBox.StandardButton.Yes)
+        if reply == QMessageBox.StandardButton.Yes:
+            self._start_task()
+        else:
+            self.workflow_state = WorkflowState.READY
+
+    def dragEnterEvent(self, event: Any) -> None:
+        if event.mimeData().hasUrls():
+            event.acceptProposedAction()
+
+    def dropEvent(self, event: Any) -> None:
+        paths = [Path(url.toLocalFile()) for url in event.mimeData().urls() if url.isLocalFile()]
+        added, ignored = self._add_zip_paths(paths)
+        if not added:
+            QMessageBox.information(self, "拖曳 ZIP", "僅支援 Google Takeout ZIP 檔案。")
+        elif ignored:
+            QMessageBox.information(self, "拖曳 ZIP", f"已忽略 {ignored} 個非 ZIP 檔案。")
+        event.acceptProposedAction()
 
     def _on_finished_success(self, data: dict) -> None:
         self.worker = None
@@ -563,6 +721,9 @@ class MainWindow(QMainWindow):
         self.btn_open_report.setEnabled(report_file.exists())
 
         self.lbl_stage.setText(f"✓ {title_msg}")
+        self.workflow_state = WorkflowState.COMPLETED if verification and verification.get("result") == "PASS" else WorkflowState.FAILED
+        self.btn_next_batch.setVisible(not is_analyze)
+        self.btn_clear_temp.setVisible(self.workflow_state == WorkflowState.COMPLETED and safe_temp_target(self.output_dir) is not None)
 
         if verification and verification.get("result") != "PASS":
             QMessageBox.critical(
@@ -576,6 +737,7 @@ class MainWindow(QMainWindow):
     def _on_finished_error(self, message: str, traceback_str: str, error_stage: int) -> None:
         self.worker = None
         self._update_action_state()
+        self.workflow_state = WorkflowState.FAILED
         self.lbl_stage.setText("整理過程發生問題")
         self._update_stepper(stage=error_stage, error_stage=error_stage)
 
@@ -590,11 +752,47 @@ class MainWindow(QMainWindow):
         msg_box = QMessageBox(self)
         msg_box.setIcon(QMessageBox.Icon.Critical)
         msg_box.setWindowTitle("處理錯誤")
-        msg_box.setText(f"處理過程中發生錯誤：\n{message}")
+        msg_box.setText(message if message.startswith("偵測到既有") else f"處理過程中發生錯誤：\n{message}")
         msg_box.setInformativeText("已將錯誤記錄保存至工作日誌。若需要排查問題，請點擊下方「顯示詳細資料」。")
         msg_box.setDetailedText(traceback_str)
         msg_box.setStandardButtons(QMessageBox.StandardButton.Ok)
         msg_box.exec()
+
+    def _reset_next_batch(self) -> None:
+        self.sources.clear()
+        self.src_list.clear()
+        self.output_dir = None
+        self.txt_output.clear()
+        self.last_work_dir = None
+        self.last_summary = None
+        self.workflow_state = WorkflowState.READY
+        self.lbl_stage.setText("就緒")
+        self.lbl_current_file.clear()
+        self.progress_bar.setRange(0, 100)
+        self.progress_bar.setValue(0)
+        self._update_stepper(0)
+        self.widget_res_details.hide()
+        self.lbl_res_placeholder.show()
+        self._update_source_status()
+        self._update_action_state()
+
+    def _clear_temp(self) -> None:
+        if self.workflow_state != WorkflowState.COMPLETED or not self.output_dir:
+            return
+        target = safe_temp_target(self.output_dir)
+        if not target or not target.exists():
+            self.btn_clear_temp.hide()
+            return
+        reply = QMessageBox.question(self, "清除暫存資料", "確定要清除本次整理的暫存資料嗎？\n\n清除後可釋放磁碟空間，但將無法再使用「繼續上次整理」功能。\n已整理完成的照片、影片、中繼資料與驗證報告不會被刪除。", QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, QMessageBox.StandardButton.No)
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+        try:
+            shutil.rmtree(target)
+        except OSError:
+            QMessageBox.warning(self, "清除暫存資料", "部分暫存資料無法刪除，請關閉正在使用的檔案後再試。")
+            return
+        self.btn_clear_temp.hide()
+        self.lbl_stage.setText("✓ 整理完成（暫存資料已清除）")
 
     def _open_output_dir(self) -> None:
         if self.output_dir and self.output_dir.exists():
@@ -632,17 +830,16 @@ class MainWindow(QMainWindow):
     def closeEvent(self, event: Any) -> None:
         if self.worker is not None and self.worker.isRunning():
             reply = QMessageBox.question(
-                self,
-                "確認關閉",
-                "目前正在整理資料，確定要中止並關閉嗎？",
+                self, "確認關閉",
+                "目前正在整理資料。\n\n若現在停止，已完成檔案會保留，下次可以繼續未完成工作。",
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                 QMessageBox.StandardButton.No,
             )
             if reply == QMessageBox.StandardButton.Yes:
-                self.worker._is_cancelled = True
-                self.worker.terminate()
-                self.worker.wait(2000)
-                event.accept()
+                self.pending_close = True
+                self.worker.request_cancel()
+                self.lbl_stage.setText("正在安全停止，請稍候…")
+                event.ignore()
             else:
                 event.ignore()
         else:
@@ -658,4 +855,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
