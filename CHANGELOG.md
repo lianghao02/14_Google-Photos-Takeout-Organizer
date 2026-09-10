@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.0.1
+
+- 修正 EXIF DateTimeOriginal 讀取方式（透過 Exif IFD 精確獲取真實拍攝時間，避免誤取檔案修改時間）。
+- 修正 UTC 與本地時間（UTC+8）跨日時間差比對邏輯，消除假性日期衝突。
+- 修正 Review 路由邏輯，確保待人工確認檔案依衝突類型分流，避免誤入未判定日期目錄。
+- 匯出時全面支援 Sidecar JSON 隨媒體檔案以 Copy-only 方式同步保存。
+- 全新 Windows 桌面繁體中文圖形介面 (PySide6)，採單視窗工作流程引導與流程 Stepper。
+- 提供 Windows x64 免安裝綠色版 (Portable) 單一目錄發布包（無 CMD 黑色控制台視窗）。
+- 強化 RUN.bat 自動偵測依賴與執行錯誤停留機制。
+- 包含自動化 GUI 流程完整端到端 Smoke Test，經由真實 Takeout ZIP 回歸驗證通過。
+
 ## 1.0.0
 
 - 正式完成 v1.0.0 發布，經由真實 Google Photos Takeout 多分卷（約 3GB、1,932 檔案樣本）完整驗證。

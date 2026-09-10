@@ -1,6 +1,7 @@
 from __future__ import annotations
 import os
 import sys
+import shutil
 import webbrowser
 from pathlib import Path
 from typing import Any
@@ -119,6 +120,29 @@ class WorkerThread(QThread):
             current_stage = 3
             self.stage_changed.emit("正在驗證整理結果...", 3)
             verify_result = verify(self.output_dir / "manifest.json", self.output_dir)
+
+            # 只有在全部成功且已寫入正式檔案時，才自動安全清理 .gpto_work
+            if (
+                not self._is_cancelled
+                and verify_result.get("result") == "PASS"
+                and verify_result.get("failed", 1) == 0
+                and (self.output_dir / "manifest.json").exists()
+                and (self.output_dir / "verification.json").exists()
+            ):
+                # 清理前將視覺化報告 report.html 安全複製至正式輸出根目錄
+                work_report = work_dir / "report.html"
+                dest_report = self.output_dir / "report.html"
+                if work_report.exists() and not dest_report.exists():
+                    try:
+                        shutil.copyfile(work_report, dest_report)
+                    except Exception:
+                        pass
+
+                # 安全清理暫存工作區
+                try:
+                    shutil.rmtree(work_dir, ignore_errors=True)
+                except Exception:
+                    pass
 
             current_stage = 4
             self.stage_changed.emit("整理完成", 4)
@@ -593,6 +617,11 @@ class MainWindow(QMainWindow):
                 QMessageBox.information(self, "人工確認", "本次整理無需要人工確認的項目。")
 
     def _open_report_file(self) -> None:
+        if self.output_dir:
+            out_report = self.output_dir / "report.html"
+            if out_report.exists():
+                webbrowser.open(out_report.resolve().as_uri())
+                return
         if self.last_work_dir:
             report_path = self.last_work_dir / "report.html"
             if report_path.exists():

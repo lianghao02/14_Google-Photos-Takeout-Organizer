@@ -267,5 +267,8 @@ def test_gui_workflow_smoke(tmp_path):
     exported_photo = out_dir / "Photos_Archive" / "2023" / "05" / "sample.jpg"
     assert exported_photo.exists()
     assert (out_dir / "verification.json").exists()
+    assert (out_dir / "manifest.json").exists()
+    assert (out_dir / "report.html").exists()
+    assert not (out_dir / ".gpto_work").exists(), ".gpto_work should be safely cleaned up on PASS"
 
 

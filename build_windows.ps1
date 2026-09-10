@@ -4,8 +4,9 @@ $ErrorActionPreference = "Stop"
 $ProjectRoot = $PSScriptRoot
 $DistDir = Join-Path $ProjectRoot "dist"
 $BuildDir = Join-Path $ProjectRoot "build"
-$TargetName = "Google-Photos-Takeout-Organizer-v1.0.0-Windows-x64"
+$TargetName = "Google-Photos-Takeout-Organizer-v1.0.1-Windows-x64"
 $TargetDir = Join-Path $DistDir $TargetName
+$ZipPath = Join-Path $DistDir "$TargetName.zip"
 $ExeName = "Google Photos Takeout 整理工具.exe"
 
 function Safe-RemoveDir($dirPath) {
@@ -20,6 +21,9 @@ function Safe-RemoveDir($dirPath) {
 Write-Host "=== 1. 清理舊有打包暫存 ==="
 Safe-RemoveDir $BuildDir
 Safe-RemoveDir $TargetDir
+if (Test-Path $ZipPath) {
+    Remove-Item -Force $ZipPath
+}
 
 Write-Host "=== 2. 執行 PyInstaller onedir 打包 ==="
 $EntryScript = Join-Path $ProjectRoot "src\google_photos_takeout_organizer\gui.py"
@@ -49,7 +53,7 @@ if (-not (Test-Path $ExePath)) {
 
 Write-Host "=== 3. 建立使用說明 ==="
 $ReadmeLines = @(
-    "Google 相簿 Takeout 整理工具 (v1.0.0 Windows x64 可攜版)",
+    "Google 相簿 Takeout 整理工具 (v1.0.1 Windows x64 可攜版)",
     "===================================================",
     "",
     "【使用說明】",
@@ -71,4 +75,11 @@ Write-Host "=== 4. 計算產物 SHA-256 Checksum ==="
 $Hash = (Get-FileHash -Path $ExePath -Algorithm SHA256).Hash
 Write-Host "產物主執行檔：$ExePath"
 Write-Host "SHA-256：$Hash"
+
+Write-Host "=== 5. 封裝為 Portable ZIP 發布包 ==="
+tar.exe -a -c -f $ZipPath -C $DistDir $TargetName
+$ZipHash = (Get-FileHash -Path $ZipPath -Algorithm SHA256).Hash
+Write-Host "發布壓縮包：$ZipPath"
+Write-Host "ZIP SHA-256：$ZipHash"
+
 Write-Host "=== 打包完成！ ==="

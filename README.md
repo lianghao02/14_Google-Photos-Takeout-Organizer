@@ -66,7 +66,7 @@ A standalone portable distribution for Windows x64 can be built using:
 ```powershell
 .\build_windows.ps1
 ```
-Output directory: `dist\Google-Photos-Takeout-Organizer-v1.0.0-Windows-x64\`
+Output directory: `dist\Google-Photos-Takeout-Organizer-v1.0.1-Windows-x64\`
 - Contains `Google Photos Takeout 整理工具.exe` (no console window, standalone PySide6 runtime).
 - Fully portable: no Python installation required on the target machine.
 

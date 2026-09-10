@@ -1,0 +1,17 @@
+輸出資料夾/
+├── Photos_Archive/             ← 【主照片庫】（最核心資料）
+│   └── YYYY/MM/                ← 依西元年份與月份分類
+│       ├── photo.jpg           ← 原始照片／影片（未經任何壓縮轉碼）
+│       └── photo.jpg.json      ← 對應的中繼資料（GPS、拍攝資訊、說明）
+│
+├── Duplicates/                 ← 【重複檔案副本】
+│   └── YYYY/MM/photo__dup001.jpg  ← 與主庫內容 100% 相同的重複檔案（完整保留，供核對）
+│
+├── Review/                     ← 【需人工確認項目】
+│   ├── Date-Conflict/          ← EXIF 與 JSON 日期差異過大者
+│   └── Ambiguous-Sidecar/      ← 同檔名有多個中繼資料候選者
+│
+├── Unknown-Date/               ← 【未辨識日期項目】（無任何時間線索者）
+│
+├── manifest.json               ← 【完整整理清冊】（記錄每個檔案來源、SHA-256、落點）
+└── verification.json           ← 【完整性校驗報告】（SHA-256 逐檔校驗結果，證明無損）

@@ -2,8 +2,8 @@
 
 ## Current Phase
 
-Version 1.0.0 release prepared and verified against real multi-volume Google Photos Takeout datasets (1,932 files, 3.0GB across volumes 001, 006, 034).
-All core tests pass. Release Gate: PASS.
+Version 1.0.1 release prepared and verified with Windows PySide6 GUI and Portable distribution.
+All core tests pass (11/11). Release Gate: PASS.
 
 ## Next Step
 
