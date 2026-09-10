@@ -3,10 +3,17 @@ from datetime import datetime, timezone
 from pathlib import Path
 from PIL import Image
 
+try:
+    import pillow_heif
+    pillow_heif.register_heif_opener()
+except Exception:
+    pass
+
 def image_metadata(path: Path) -> tuple[int | None, int | None, str | None, str]:
     try:
         with Image.open(path) as image:
-            raw = image.getexif().get(36867) or image.getexif().get(306)
+            exif = image.getexif()
+            raw = (exif.get(36867) or exif.get(306)) if exif else None
             return image.width, image.height, (str(raw).replace(":", "-", 2).replace(" ", "T") if raw else None), "FOUND" if raw else "NOT_FOUND"
     except Exception: return None, None, None, "CORRUPT_OR_UNSUPPORTED"
 def json_date(data: dict) -> str | None:

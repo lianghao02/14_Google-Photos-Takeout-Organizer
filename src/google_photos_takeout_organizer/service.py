@@ -18,7 +18,8 @@ def analyze(inputs: list[Path], work: Path) -> dict:
         if source.suffix.lower() == ".zip": root = extracted / archive_id; warnings.extend(extract_zip(source, root))
         archives.append({"archive_id": archive_id, "source": str(source), "root": str(root)})
         found, sidecars = scan(root, archive_id); records.extend(found); jsons.extend(sidecars)
-    _, match_warnings = match(records, jsons); warnings.extend(match_warnings)
+    roots = {a["archive_id"]: Path(a["root"]) for a in archives}
+    _, match_warnings = match(records, jsons, roots); warnings.extend(match_warnings)
     for record in records:
         if record.media_type == "photo": record.width, record.height, record.exif_date, record.exif_status = image_metadata(Path(record.source_path))
         resolve(record)

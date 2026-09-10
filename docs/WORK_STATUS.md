@@ -2,8 +2,9 @@
 
 ## Current Phase
 
-MVP implementation and local synthetic validation completed.
+Real Google Photos Takeout multi-archive validation completed on actual multi-ZIP dataset (1,932 files, 3.0GB across volumes 001, 006, 034).
+Core fixes for supplemental metadata matching, numbered variant pairing, cross-archive pooling, and HEIC metadata fallback validated and verified.
 
 ## Next Step
 
-Configure an `origin` remote, then push `feat/takeout-organizer-mvp`. Run a real Takeout validation only after an independently verified source backup exists.
+Evaluate v1.0 release gating and tag v1.0 upon approval.
