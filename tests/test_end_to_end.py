@@ -272,3 +272,37 @@ def test_gui_workflow_smoke(tmp_path):
     assert (out_dir / ".gpto_work" / "session.json").exists(), "完成後應保留暫存資料供使用者自行決定是否清除"
 
 
+def test_format_eta_and_progress_display():
+    from google_photos_takeout_organizer.gui import format_eta_text, MainWindow
+    from PySide6.QtWidgets import QApplication
+
+    assert format_eta_text(15.2) == "< 1 分鐘"
+    assert format_eta_text(59.4) == "< 1 分鐘"
+    assert format_eta_text(60.0) == "1 分 00 秒"
+    assert format_eta_text(125.0) == "2 分 05 秒"
+    assert format_eta_text(350.0) == "5 分鐘"
+    assert format_eta_text(3720.0) == "1 小時 2 分"
+
+    app = QApplication.instance() or QApplication([])
+    win = MainWindow()
+
+    # 剛開始（未滿 3 秒或未滿 3 筆）：顯示「預估時間計算中…」
+    win._on_progress("EXPORT", 1, 100, "test1.jpg")
+    assert "正在整理照片與影片：1 / 100" in win.lbl_stage.text()
+    assert "計算中" in win.lbl_stage.text()
+
+    # 模擬經過時間與筆數
+    win._stage_start_time -= 10.0
+    win._stage_start_current = 0
+    win._last_progress_time = win._stage_start_time
+    win._last_progress_current = 0
+    win._on_progress("EXPORT", 50, 100, "test50.jpg")
+    assert "正在整理照片與影片：50 / 100" in win.lbl_stage.text()
+    assert "剩餘約" in win.lbl_stage.text()
+
+    # 完成時 (current == total)
+    win._on_progress("EXPORT", 100, 100, "test100.jpg")
+    assert win.lbl_stage.text() == "正在整理照片與影片：100 / 100"
+
+
+

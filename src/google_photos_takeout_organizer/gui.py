@@ -1,6 +1,7 @@
 from __future__ import annotations
 import os
 import sys
+import time
 import shutil
 import webbrowser
 from pathlib import Path
@@ -78,6 +79,21 @@ def format_file_size(size_in_bytes: int) -> str:
         return f"{size_in_bytes / (1024 * 1024):.1f} MB"
     else:
         return f"{size_in_bytes / (1024 * 1024 * 1024):.2f} GB"
+
+
+def format_eta_text(remaining_seconds: float) -> str:
+    remaining_int = max(0, int(round(remaining_seconds)))
+    if remaining_int < 60:
+        return "< 1 分鐘"
+    hours = remaining_int // 3600
+    minutes = (remaining_int % 3600) // 60
+    seconds = remaining_int % 60
+    if hours > 0:
+        return f"{hours} 小時 {minutes} 分"
+    elif minutes >= 5:
+        return f"{minutes} 分鐘"
+    else:
+        return f"{minutes} 分 {seconds:02d} 秒"
 
 
 class WorkerThread(QThread):
@@ -223,6 +239,13 @@ class MainWindow(QMainWindow):
         self.workflow_state = WorkflowState.READY
         self.pending_close = False
         self.setAcceptDrops(True)
+
+        self._current_progress_stage: str | None = None
+        self._stage_start_time: float = 0.0
+        self._stage_start_current: int = 0
+        self._last_progress_time: float = 0.0
+        self._last_progress_current: int = 0
+        self._smoothed_rate: float = 0.0
 
         self._init_ui()
         self._update_action_state()
@@ -594,7 +617,44 @@ class MainWindow(QMainWindow):
         self.progress_bar.setRange(0, max(1, total))
         self.progress_bar.setValue(current)
         label = "正在整理照片與影片" if stage == "EXPORT" else "正在驗證檔案"
-        self.lbl_stage.setText(f"{label}：{current} / {total}")
+
+        now = time.time()
+        if self._current_progress_stage != stage:
+            self._current_progress_stage = stage
+            self._stage_start_time = now
+            self._stage_start_current = current
+            self._last_progress_time = now
+            self._last_progress_current = current
+            self._smoothed_rate = 0.0
+
+        elapsed_total = now - self._stage_start_time
+        processed_in_stage = max(0, current - self._stage_start_current)
+        remaining = max(0, total - current)
+
+        eta_str = ""
+        if remaining == 0:
+            eta_str = ""
+        elif elapsed_total < 3.0 or processed_in_stage < 3:
+            eta_str = " · 預估時間計算中…"
+        else:
+            # 計算即時速率並以 EMA 平滑處理，避免檔案大小不同造成劇烈晃動
+            dt = now - self._last_progress_time
+            d_items = current - self._last_progress_current
+            if dt >= 0.5 and d_items >= 0:
+                instant_rate = d_items / dt
+                if self._smoothed_rate <= 0.0:
+                    self._smoothed_rate = instant_rate
+                else:
+                    self._smoothed_rate = (0.7 * self._smoothed_rate) + (0.3 * instant_rate)
+                self._last_progress_time = now
+                self._last_progress_current = current
+
+            effective_rate = self._smoothed_rate if self._smoothed_rate > 0.0 else (processed_in_stage / max(0.1, elapsed_total))
+            if effective_rate > 0.01:
+                eta_seconds = remaining / effective_rate
+                eta_str = f" · 剩餘約 {format_eta_text(eta_seconds)}"
+
+        self.lbl_stage.setText(f"{label}：{current} / {total}{eta_str}")
         self.lbl_current_file.setText(f"目前：{filename}")
         self.lbl_current_file.setToolTip(filename)
 
@@ -766,6 +826,12 @@ class MainWindow(QMainWindow):
         self.last_work_dir = None
         self.last_summary = None
         self.workflow_state = WorkflowState.READY
+        self._current_progress_stage = None
+        self._stage_start_time = 0.0
+        self._stage_start_current = 0
+        self._last_progress_time = 0.0
+        self._last_progress_current = 0
+        self._smoothed_rate = 0.0
         self.lbl_stage.setText("就緒")
         self.lbl_current_file.clear()
         self.progress_bar.setRange(0, 100)
