@@ -259,7 +259,7 @@ def test_gui_workflow_smoke(tmp_path):
     # Step 4: Verify UI state progression and results
     assert win.widget_res_details.isVisible()
     assert not win.lbl_res_placeholder.isVisible()
-    assert "驗證成功 1" in win.lbl_stats_verify.text()
+    assert "完整性驗證通過" in win.lbl_stats_verify.text()
     assert "照片 <b>1</b>" in win.lbl_stats_media.text()
     assert win.btn_open_out.isEnabled()
 
@@ -286,10 +286,11 @@ def test_format_eta_and_progress_display():
     app = QApplication.instance() or QApplication([])
     win = MainWindow()
 
-    # 剛開始（未滿 3 秒或未滿 3 筆）：顯示「預估時間計算中…」
+    # 剛開始（未滿 3 秒或未滿 3 筆）：進度統計顯示「預估時間計算中…」
     win._on_progress("EXPORT", 1, 100, "test1.jpg")
-    assert "正在整理照片與影片：1 / 100" in win.lbl_stage.text()
-    assert "計算中" in win.lbl_stage.text()
+    assert "正在整理照片與影片 · 1%" in win.lbl_stage.text()
+    assert "1 / 100" in win.lbl_prog_stats.text()
+    assert "計算中" in win.lbl_prog_stats.text()
 
     # 模擬經過時間與筆數
     win._stage_start_time -= 10.0
@@ -297,12 +298,81 @@ def test_format_eta_and_progress_display():
     win._last_progress_time = win._stage_start_time
     win._last_progress_current = 0
     win._on_progress("EXPORT", 50, 100, "test50.jpg")
-    assert "正在整理照片與影片：50 / 100" in win.lbl_stage.text()
-    assert "剩餘約" in win.lbl_stage.text()
+    assert "正在整理照片與影片 · 50%" in win.lbl_stage.text()
+    assert "50 / 100" in win.lbl_prog_stats.text()
+    assert "剩餘約" in win.lbl_prog_stats.text()
 
     # 完成時 (current == total)
     win._on_progress("EXPORT", 100, 100, "test100.jpg")
-    assert win.lbl_stage.text() == "正在整理照片與影片：100 / 100"
+    assert win.lbl_stage.text() == "正在整理照片與影片 · 100%"
+    assert win.lbl_prog_stats.text() == "100 / 100"
+
+
+def test_gui_ux_convergence(tmp_path):
+    from google_photos_takeout_organizer.gui import MainWindow
+    from PySide6.QtWidgets import QApplication, QMessageBox
+
+    app = QApplication.instance() or QApplication([])
+    win = MainWindow()
+    win.show()
+
+    # Avoid modal blocking in automated test
+    QMessageBox.information = lambda *args: None
+    QMessageBox.warning = lambda *args: None
+    QMessageBox.critical = lambda *args: None
+
+    # 1. 初始狀態驗證
+    assert win.lbl_empty_hint.isVisible()
+    assert "將 Google Takeout ZIP 拖曳至此" in win.lbl_empty_hint.text()
+    assert not win.btn_start.isEnabled()
+    assert win.btn_start.toolTip() == "請先加入 Takeout ZIP。"
+    assert not win.btn_cancel.isVisible()
+
+    # 2. 加入來源 ZIP
+    dummy_zip = tmp_path / "takeout-001.zip"
+    dummy_zip.write_bytes(b"PK\x05\x06" + b"\x00" * 18)
+    win.sources = [dummy_zip]
+    win._update_source_status()
+    assert not win.lbl_empty_hint.isVisible()
+    win._update_action_state()
+    assert not win.btn_start.isEnabled()
+    assert win.btn_start.toolTip() == "請先選擇輸出位置。"
+
+    # 3. 指定輸出位置
+    out_dir = tmp_path / "organizer_out"
+    out_dir.mkdir()
+    win.output_dir = out_dir
+    win.txt_output.setText(str(out_dir))
+    win._update_action_state()
+
+    assert win.btn_start.isEnabled()
+    assert win.btn_start.toolTip() == "開始整理照片與影片"
+    assert win.lbl_disk_info.isVisible()
+    assert "空間充足" in win.lbl_disk_info.text()
+
+    # 4. 檔名 Middle-Elide 驗證
+    long_filename = "very_long_path_to_some_camera_photo_taken_in_2023_05_10_numbered_999999999999.jpg"
+    win._on_progress("EXPORT", 10, 100, long_filename)
+    assert win.lbl_current_file.toolTip() == long_filename
+    assert "…" in win.lbl_current_file.text() or "..." in win.lbl_current_file.text() or "目前：" in win.lbl_current_file.text()
+
+    # 5. 完成結果狀態分流驗證 (無人工確認項目)
+    win._on_finished_success({
+        "manifest": {"summary": {"photos": 5, "videos": 2, "json_matched": 7}, "media_records": []},
+        "verification": {"result": "PASS", "verified": 7, "failed": 0},
+        "work_dir": str(tmp_path),
+    })
+    assert win.widget_res_details.isVisible()
+    assert "無待確認項目" in win.lbl_stats_verify.text()
+    assert not win.btn_open_review.isVisible()
+
+    # 6. 重設下一批
+    win._reset_next_batch()
+    assert win.lbl_empty_hint.isVisible()
+    assert win.lbl_stage.text() == "就緒"
+    assert win.lbl_prog_stats.text() == ""
+    assert win.lbl_current_file.text() == ""
+
 
 
 
