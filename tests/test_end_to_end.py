@@ -1,6 +1,8 @@
 import json, zipfile
 from pathlib import Path
+import pytest
 from PIL import Image
+from google_photos_takeout_organizer.archive import extract_zip
 from google_photos_takeout_organizer.service import analyze
 from google_photos_takeout_organizer.exporter import export
 from google_photos_takeout_organizer.verifier import verify
@@ -32,6 +34,20 @@ def test_multiple_zips_cross_archive_and_zip_slip(tmp_path):
     record = manifest["media_records"][0]
     assert record["json_status"] == "MATCHED" and record["resolved_date"].startswith("2018-06")
     assert any("ZIP_PATH_TRAVERSAL" in x for x in manifest["warnings"]); assert not (tmp_path / "escape.jpg").exists()
+
+
+def test_zip_extraction_cancels_between_chunks_without_leaving_partial_file(tmp_path):
+    source = tmp_path / "large-entry.zip"
+    with zipfile.ZipFile(source, "w", compression=zipfile.ZIP_STORED) as archive:
+        archive.writestr("Google Photos/large.bin", b"x" * (5 * 1024 * 1024))
+
+    checks = iter([False, False, True])
+    with pytest.raises(InterruptedError):
+        extract_zip(source, tmp_path / "extracted", cancel_requested=lambda: next(checks, True))
+
+    target = tmp_path / "extracted" / "Google Photos" / "large.bin"
+    assert not target.exists()
+    assert not target.with_name(".large.bin.gpto-part").exists()
 
 def test_windows_name_safety():
     assert sanitize_filename('CON.jpg').startswith('_CON'); assert sanitize_filename('a<b>.jpg') == 'a_b_.jpg'
@@ -236,7 +252,8 @@ def test_gui_workflow_smoke(tmp_path):
     win._update_source_status()
     assert "已選取 1 個 ZIP" in win.lbl_src_count.text()
     assert not win.widget_res_details.isVisible()
-    assert win.lbl_res_placeholder.isVisible()
+    # 採用漸進式揭露 (Progressive Disclosure)：整理前不預佔空白結果卡片
+    assert not win.res_group.isVisible()
 
     # Step 2: Set output
     win.output_dir = out_dir
@@ -258,7 +275,7 @@ def test_gui_workflow_smoke(tmp_path):
 
     # Step 4: Verify UI state progression and results
     assert win.widget_res_details.isVisible()
-    assert not win.lbl_res_placeholder.isVisible()
+    assert win.res_group.isVisible()
     assert "完整性驗證通過" in win.lbl_stats_verify.text()
     assert "照片 <b>1</b>" in win.lbl_stats_media.text()
     assert win.btn_open_out.isEnabled()

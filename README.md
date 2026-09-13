@@ -53,22 +53,11 @@ python -m google_photos_takeout_organizer.cli verify --manifest E:\GooglePhotos_
 
 A clean, workflow-oriented desktop GUI is included for Windows users without needing command-line knowledge.
 
-### Running via Python / Repository
-Double-click `RUN.bat` or run:
-```powershell
-python -m google_photos_takeout_organizer.gui
-# or via registered script:
-gpto-gui
-```
-
-### Windows Portable (免安裝綠色版)
-A standalone portable distribution for Windows x64 can be built using:
-```powershell
-.\build_windows.ps1
-```
-Output directory: `dist\Google-Photos-Takeout-Organizer-v1.0.1-Windows-x64\`
-- Contains `Google Photos Takeout 整理工具.exe` (no console window, standalone PySide6 runtime).
-- Fully portable: no Python installation required on the target machine.
+### 啟動方式 (雙擊 RUN.bat 啟動器)
+在專案目錄下直接雙擊 **`RUN.bat`** 即可啟動圖形介面。
+- **免 Exe 封裝**：直接引動 Python/vEnv 執行，避免觸發公務或辦公室防毒軟體的誤判與阻擋警告。
+- **背景靜默啟動**：透過 Windows 原生 PowerShell 啟動，無黑色 CMD 控制台視窗干擾。
+- **命令列啟動**：亦可手動執行 `python -m google_photos_takeout_organizer.gui` 或 `gpto-gui`。
 
 ### GUI Workflow
 1. **來源檔案**：點擊「選擇 ZIP」或「加入更多」，選取一或多個 Google Takeout 壓縮檔（支援跨分卷中繼資料配對）。

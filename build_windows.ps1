@@ -1,10 +1,10 @@
-﻿# PowerShell script to build Windows Portable onedir package using PyInstaller
+# PowerShell script to build Windows Portable onedir package using PyInstaller
 $ErrorActionPreference = "Stop"
 
 $ProjectRoot = $PSScriptRoot
 $DistDir = Join-Path $ProjectRoot "dist"
 $BuildDir = Join-Path $ProjectRoot "build"
-$TargetName = "Google-Photos-Takeout-Organizer-v1.0.1-Windows-x64"
+$TargetName = "Google-Photos-Takeout-Organizer-v1.1.0-Windows-x64"
 $TargetDir = Join-Path $DistDir $TargetName
 $ZipPath = Join-Path $DistDir "$TargetName.zip"
 $ExeName = "Google Photos Takeout 整理工具.exe"
@@ -27,12 +27,16 @@ if (Test-Path $ZipPath) {
 
 Write-Host "=== 2. 執行 PyInstaller onedir 打包 ==="
 $EntryScript = Join-Path $ProjectRoot "src\google_photos_takeout_organizer\gui.py"
+$IconPath = Join-Path $ProjectRoot "src\google_photos_takeout_organizer\resources\app_icon.ico"
+$ResDir = Join-Path $ProjectRoot "src\google_photos_takeout_organizer\resources"
 
 pyinstaller `
     --noconfirm `
     --onedir `
     --windowed `
     --name "Google Photos Takeout 整理工具" `
+    --icon "$IconPath" `
+    --add-data "${ResDir};google_photos_takeout_organizer/resources" `
     --paths (Join-Path $ProjectRoot "src") `
     --collect-all "PIL" `
     --collect-all "pillow_heif" `
@@ -53,7 +57,7 @@ if (-not (Test-Path $ExePath)) {
 
 Write-Host "=== 3. 建立使用說明 ==="
 $ReadmeLines = @(
-    "Google 相簿 Takeout 整理工具 (v1.0.1 Windows x64 可攜版)",
+    "Google 相簿 Takeout 整理工具 (v1.1.0 Windows x64 可攜版)",
     "===================================================",
     "",
     "【使用說明】",
