@@ -1,5 +1,7 @@
 # Google Photos Takeout Organizer
 
+[繁體中文](README.zh-TW.md) | **English**
+
 Safe, local, copy-only organization for Google Photos / Google Takeout ZIPs and folders. It generates a manifest and review report before exporting.
 
 `Takeout → Analyze → Review → Export → Verify`
@@ -53,51 +55,50 @@ python -m google_photos_takeout_organizer.cli verify --manifest E:\GooglePhotos_
 
 A clean, workflow-oriented desktop GUI is included for Windows users without needing command-line knowledge.
 
-### 啟動方式（雙擊 RUN.bat 啟動器）
-在專案目錄下直接雙擊 **`RUN.bat`** 即可啟動圖形介面。
-- **免 Exe 封裝**：直接引動 Python/vEnv 執行，避免觸發公務或辦公室防毒軟體的誤判與阻擋警告。
-- **首次自動設定**：若沒有 `.venv`，啟動器會確認 Python 3.13+、建立虛擬環境並安裝 `requirements.txt`；首次設定需網路連線。
-- **背景靜默啟動**：完成設定後透過 `pythonw.exe` 啟動，無黑色 CMD 控制台視窗干擾。
-- **命令列啟動**：亦可手動執行 `python -m google_photos_takeout_organizer.gui` 或 `gpto-gui`。
+### Launch with RUN.bat
+
+Double-click **`RUN.bat`** in the project folder to open the desktop GUI.
+
+- **No packaged EXE**: Runs through Python / `.venv`, reducing false-positive antivirus warnings in managed office environments.
+- **First-run setup**: Detects Python 3.13+, creates `.venv`, and installs `requirements.txt`. An internet connection is required only for this setup.
+- **Quiet subsequent launches**: Uses `pythonw.exe` after setup, so no console window remains open.
+- **Command line**: You may also run `python -m google_photos_takeout_organizer.gui` or `gpto-gui`.
 
 ### GUI Workflow
-1. **來源檔案**：點擊「選擇 ZIP」或「加入更多」，選取一或多個 Google Takeout 壓縮檔（支援跨分卷中繼資料配對）。
-2. **輸出位置**：點擊「選擇」指定整理目標資料夾。
-3. **安全特性**：內建固定保證「✓ 原始 Takeout 不會被移動或刪除」。
-4. **開始整理**：點擊中央醒目的「開始整理」主要按鈕，系統將依序自動執行：
-   - `分析資料` (Analyze)
-   - `整理檔案` (Export, Copy-only)
-   - `驗證結果` (Verify, SHA-256)
-5. **整理結果與快捷動作**：完成後展開完整統計卡片，並可直接點擊「開啟整理結果」、「開啟人工確認」或「查看詳細報告」。
+1. Add one or more Takeout ZIP files. Multi-part exports are pooled for cross-archive sidecar matching.
+2. Select an output directory.
+3. Original Takeout archives are never moved, changed, or deleted.
+4. Start the guided workflow: Analyze → Export (copy-only) → Verify (SHA-256).
+5. Open the organized output, review folder, or detailed report after completion.
 
-### 大容量 Takeout 工作流程
+### Large-library workflow
 
-- **中斷後繼續整理**：取消或意外中斷後保留 `.gpto_work/session.json` 與已安全複製的輸出；再次選取同一輸出位置時會核對 ZIP 路徑、大小及修改時間。既有同名輸出只有在 size 與 SHA-256 完全相同時才跳過，否則停止以避免覆寫。
-- **磁碟空間檢查**：開始前以來源 ZIP 總大小的 2.5 倍估算需求；空間不足會阻擋開始，接近門檻則顯示警告。
-- **拖曳 ZIP**：可直接從檔案總管拖入一或多個 `.zip`；重複項目會忽略。
-- **清除暫存資料**：僅在驗證通過後顯示，且只會刪除輸出根目錄下的 `.gpto_work`，不會刪除正式輸出、manifest 或驗證報告。
-- **背景整理**：按視窗的「—」會縮小至 Windows 右下系統列，正在進行的整理會繼續執行；在系統列圖示按右鍵可重新顯示介面。按「×」會結束程式，整理中則先確認並安全停止。
+- **Safe resume**: Interrupted work keeps `.gpto_work/session.json` and completed output. Resume verifies source ZIP path, size, and modification time. Existing files are skipped only when both size and SHA-256 match.
+- **Disk preflight**: Estimates required capacity at 2.5× the total source ZIP size before starting.
+- **Drag and drop**: Drop one or more `.zip` files directly into the window; duplicate inputs are ignored.
+- **Clear temporary data**: Available only after successful verification; it removes only `.gpto_work`, never formal output, manifests, or reports.
+- **Background work**: Minimize with “—” to the Windows system tray while work continues. Close with “×” to safely stop work after confirmation.
 
 ## Output Structure
 
 ```
 <output>/
-├── Photos_Archive/    # 主要照片與影片歸檔
+├── Photos_Archive/    # Primary photo and video archive
 │   └── YYYY/
 │       ├── MM/
 │       │   ├── photo.jpg
 │       │   └── photo.jpg.supplemental-metadata.json
 │       └── Unknown-Month/
-├── Duplicates/        # 內容相同之重複檔案
+├── Duplicates/        # Byte-identical duplicates
 │   └── YYYY/
 │       └── MM/
 │           └── photo__dup001.jpg
-├── Review/            # 待人工確認（日期衝突、多重中繼資料）
+├── Review/            # Manual review (date conflicts or ambiguous sidecars)
 │   ├── Date-Conflict/
 │   └── Ambiguous-Sidecar/
-├── Unknown-Date/       # 未判定日期
-├── manifest.json      # 完整整理清冊（來源、雜湊、對應路徑）
-└── verification.json  # 匯出完整性驗證報告 (SHA-256)
+├── Unknown-Date/       # Media with no reliable date
+├── manifest.json      # Full manifest: sources, hashes, and output paths
+└── verification.json  # Export integrity report (SHA-256)
 ```
 
 Copy-only safety guarantee: original inputs are never modified, deleted, moved, or overwritten. EXIF metadata is never rewritten and media files are never recompressed or transcoded.

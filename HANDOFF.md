@@ -12,6 +12,11 @@
 
 ## 已完成
 
+### Repository 文件與 topics（待提交）
+
+- GitHub topics：`google-photos`、`google-takeout`、`photo-organizer`、`photo-management`、`metadata`、`exif`、`heic`、`pyside6`、`python`、`windows`。
+- `README.md` 改為英文首頁，新增 `README.zh-TW.md` 繁中頁，兩頁頂部可互相切換。
+
 ### GUI 排版
 - QStackedLayout 管理提示卡片與來源清單，解決小視窗文字截斷問題
 - A+B+C 綜合方案：最小視窗 820x640、最大內容寬度 840px 置中、QScrollArea 兜底
