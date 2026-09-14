@@ -22,7 +22,7 @@
 - [x] 建立自癒 PowerShell 啟動器並改接 `RUN.bat`｜PowerShell 語法檢查與 `-NoLaunch` 啟動測試通過。
 - [x] 更新版本、使用說明與更新日誌｜文件檢查通過。
 - [x] 執行完整 pytest 與啟動器 smoke test｜pytest 18/18、啟動環境檢查通過。
-- [ ] 建立提交、推送 `main` 並建立 `v1.2.0` tag｜確認遠端分支與 tag。
+- [x] 建立提交、推送 `main` 並建立 `v1.2.0` tag｜遠端 tag 已確認。
 
 ## 風險與因應
 
@@ -34,6 +34,7 @@
 - PowerShell AST 語法檢查：通過。
 - `powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\start_gui.ps1 -NoLaunch`：通過。
 - `pytest -q`：18/18 通過。
+- Commit `f6d7d3f` 已推送至 `origin/main`；`v1.2.0` tag 已推送。
 
 ## 剩餘問題
 

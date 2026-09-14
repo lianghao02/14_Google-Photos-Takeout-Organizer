@@ -1,7 +1,7 @@
 # HANDOFF
 
 ## 目前狀態
-**待發布** — v1.2.0 已完成發布前驗證，待建立 commit、推送 `main` 與建立 tag。
+**可交付** — v1.2.0 已推送至 `main`，正式 tag 已建立；pytest 18/18 通過。
 
 ---
 
@@ -60,7 +60,7 @@
 ---
 
 ## 尚未完成
-待 commit、push `main` 與建立 `v1.2.0` tag。
+無。
 
 ---
 
@@ -83,11 +83,11 @@
 ---
 
 ## Git 狀態
-- Commit：44e7d00（v1.2.0 異動未提交）
-- Push：是（v1.2.0 異動尚未推送）
-- Working Tree：Modified
+- Commit：f6d7d3f（v1.2.0 正式功能提交）
+- Push：是
+- Working Tree：Clean（交接文件更新提交後）
 - Branch：main
-- Tag：v1.1.0 -> 44e7d00（已 push）；v1.2.0 待建立
+- Tag：v1.1.0 -> 44e7d00；v1.2.0 -> f6d7d3f（均已 push）
 
 ---
 
