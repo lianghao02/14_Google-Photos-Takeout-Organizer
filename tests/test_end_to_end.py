@@ -391,5 +391,16 @@ def test_gui_ux_convergence(tmp_path):
     assert win.lbl_current_file.text() == ""
 
 
+def test_system_tray_has_restore_and_safe_exit_actions():
+    from PySide6.QtWidgets import QApplication
+    from google_photos_takeout_organizer.gui import MainWindow
+
+    app = QApplication.instance() or QApplication([])
+    win = MainWindow()
+    actions = [action.text() for action in win.tray_menu.actions() if not action.isSeparator()]
+    assert actions == ["顯示整理工具", "結束程式"]
+    assert win.tray_icon.contextMenu() is win.tray_menu
+
+
 
 

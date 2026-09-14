@@ -53,10 +53,11 @@ python -m google_photos_takeout_organizer.cli verify --manifest E:\GooglePhotos_
 
 A clean, workflow-oriented desktop GUI is included for Windows users without needing command-line knowledge.
 
-### 啟動方式 (雙擊 RUN.bat 啟動器)
+### 啟動方式（雙擊 RUN.bat 啟動器）
 在專案目錄下直接雙擊 **`RUN.bat`** 即可啟動圖形介面。
 - **免 Exe 封裝**：直接引動 Python/vEnv 執行，避免觸發公務或辦公室防毒軟體的誤判與阻擋警告。
-- **背景靜默啟動**：透過 Windows 原生 PowerShell 啟動，無黑色 CMD 控制台視窗干擾。
+- **首次自動設定**：若沒有 `.venv`，啟動器會確認 Python 3.13+、建立虛擬環境並安裝 `requirements.txt`；首次設定需網路連線。
+- **背景靜默啟動**：完成設定後透過 `pythonw.exe` 啟動，無黑色 CMD 控制台視窗干擾。
 - **命令列啟動**：亦可手動執行 `python -m google_photos_takeout_organizer.gui` 或 `gpto-gui`。
 
 ### GUI Workflow
@@ -75,6 +76,7 @@ A clean, workflow-oriented desktop GUI is included for Windows users without nee
 - **磁碟空間檢查**：開始前以來源 ZIP 總大小的 2.5 倍估算需求；空間不足會阻擋開始，接近門檻則顯示警告。
 - **拖曳 ZIP**：可直接從檔案總管拖入一或多個 `.zip`；重複項目會忽略。
 - **清除暫存資料**：僅在驗證通過後顯示，且只會刪除輸出根目錄下的 `.gpto_work`，不會刪除正式輸出、manifest 或驗證報告。
+- **背景整理**：按視窗的「—」會縮小至 Windows 右下系統列，正在進行的整理會繼續執行；在系統列圖示按右鍵可重新顯示介面。按「×」會結束程式，整理中則先確認並安全停止。
 
 ## Output Structure
 

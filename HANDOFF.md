@@ -1,12 +1,12 @@
 # HANDOFF
 
 ## 目前狀態
-**可交付** — v1.1.0 已完整推送，所有功能正常，pytest 17/17 通過。
+**待發布** — v1.2.0 已完成發布前驗證，待建立 commit、推送 `main` 與建立 tag。
 
 ---
 
 ## 本輪目標
-發布 v1.1.0：專屬 Icon、純腳本靜默啟動器（解決辦公室 exe 警告）、GUI 小視窗排版修復。
+發布不含 EXE 的 v1.2.0，並加入系統列背景整理與首次自癒啟動器。
 
 ---
 
@@ -19,6 +19,13 @@
 - 視窗層級拖放：ZIP 可直接拖入主視窗（dragEnterEvent / dropEvent）
 - 移除過時 resizeEvent 中的手動 setGeometry
 
+### 系統列背景整理
+
+- 按「—」時縮小至右下系統列；背景 WorkerThread 持續執行。
+- 系統列右鍵選單提供「顯示整理工具」與「結束程式」。
+- 按「×」或從系統列選擇結束時，如仍在整理，先要求確認並以既有合作式取消安全停止。
+- `main()` 設定 `setQuitOnLastWindowClosed(False)`，避免隱藏最後視窗時結束背景工作。
+
 ### Icon
 - 選用提案 C【極簡幾何微量磚】：深藍漸層底、ZIP 拉鍊＋四色相簿圖層
 - resources/app_icon.png（1024x1024）、app_icon.ico（16/32/48/64/128/256 多解析度）
@@ -29,9 +36,13 @@
 - CHANGELOG.md：新增 ## 1.1.0 (2026-09-13) 完整條目
 
 ### 啟動器
-- RUN.bat：薄啟動器，以 -WindowStyle Hidden 背景靜默引動 scripts/start_gui.ps1
-- scripts/start_gui.ps1：智慧偵測 .venv 或系統 Python、套件檢查、pythonw.exe 優先、bootstrap 加入 src 路徑
+- RUN.bat：薄啟動器；首次設定顯示 PowerShell 建置進度，後續以隱藏視窗靜默引動 `scripts/start_gui.ps1`。
+- scripts/start_gui.ps1：自動偵測 Python 3.13+、建立 `.venv`、安裝必要套件，並以 `pythonw.exe` 優先啟動。
 - UTF-8 BOM 修復：PS1 開頭補齊 BOM，解決 Windows PowerShell 5.1 中文字元解析崩潰（閃退）
+
+### v1.2.0 發布準備
+- pyproject.toml、__init__.py 與 manifest app_version 均更新至 1.2.0。
+- 不建立 PyInstaller EXE、Installer 或內嵌 Python Runtime。
 
 ### Git 發布
 - Commit 44e7d00：fix(launcher): 補齊 UTF-8 BOM
@@ -49,14 +60,16 @@
 ---
 
 ## 尚未完成
-無。本輪需求全部完成。
+待 commit、push `main` 與建立 `v1.2.0` tag。
 
 ---
 
 ## 驗證結果
 
 ### 已執行
-- pytest -v：17/17 通過
+- pytest -q：18/18 通過（含系統列選單測試）
+- PowerShell AST 語法檢查：通過。
+- `scripts\start_gui.ps1 -NoLaunch`：通過。
 - powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\start_gui.ps1：exit code 0，GUI 正常啟動
 - RUN.bat 雙擊：靜默啟動，無閃退
 
@@ -70,16 +83,16 @@
 ---
 
 ## Git 狀態
-- Commit：44e7d00
-- Push：是
-- Working Tree：Clean
+- Commit：44e7d00（v1.2.0 異動未提交）
+- Push：是（v1.2.0 異動尚未推送）
+- Working Tree：Modified
 - Branch：main
-- Tag：v1.1.0 -> 44e7d00（已 push）
+- Tag：v1.1.0 -> 44e7d00（已 push）；v1.2.0 待建立
 
 ---
 
 ## 下一步
-無待辦事項。若需繼續開發，建議評估方向：
+完成 v1.2.0 commit、push 與 tag 後，無待辦；後續可評估方向：
 1. 批次整理速度優化（HEIC 轉換 I/O 瓶頸）
 2. 多語系支援（繁體中文 UI 字串抽離為 i18n 資源）
 3. 整理結果報告（HTML 或 CSV 輸出摘要）

@@ -7,8 +7,8 @@ import webbrowser
 from pathlib import Path
 from typing import Any
 
-from PySide6.QtCore import QThread, Signal, Qt
-from PySide6.QtGui import QFontMetrics, QDragEnterEvent, QDropEvent, QIcon
+from PySide6.QtCore import QEvent, QThread, Signal, Qt
+from PySide6.QtGui import QAction, QFontMetrics, QDragEnterEvent, QDropEvent, QIcon
 from PySide6.QtWidgets import (
     QScrollArea,
     QApplication,
@@ -23,9 +23,11 @@ from PySide6.QtWidgets import (
     QListWidgetItem,
     QLineEdit,
     QProgressBar,
+    QMenu,
     QMessageBox,
     QFileDialog,
     QGroupBox,
+    QSystemTrayIcon,
     QTextEdit,
 )
 
@@ -427,6 +429,8 @@ class MainWindow(QMainWindow):
         self.last_summary: dict[str, Any] | None = None
         self.workflow_state = WorkflowState.READY
         self.pending_close = False
+        self._quit_after_cancel = False
+        self._is_quitting = False
         self.setAcceptDrops(True)
 
         self._current_progress_stage: str | None = None
@@ -437,8 +441,56 @@ class MainWindow(QMainWindow):
         self._smoothed_rate: float = 0.0
 
         self._init_ui()
+        self._init_system_tray()
         self.setStyleSheet(APP_STYLESHEET)
         self._update_action_state()
+
+    def _init_system_tray(self) -> None:
+        """Keep long-running local work alive after the window is hidden."""
+        self.tray_icon = QSystemTrayIcon(self.windowIcon(), self)
+        self.tray_menu = QMenu(self)
+        show_action = QAction("顯示整理工具", self)
+        show_action.triggered.connect(self._restore_window)
+        exit_action = QAction("結束程式", self)
+        exit_action.triggered.connect(self._request_application_exit)
+        self.tray_menu.addAction(show_action)
+        self.tray_menu.addSeparator()
+        self.tray_menu.addAction(exit_action)
+        self.tray_icon.setContextMenu(self.tray_menu)
+        self.tray_icon.activated.connect(self._on_tray_activated)
+        if QSystemTrayIcon.isSystemTrayAvailable():
+            self.tray_icon.show()
+
+    def _restore_window(self) -> None:
+        self.showNormal()
+        self.raise_()
+        self.activateWindow()
+
+    def _on_tray_activated(self, reason: QSystemTrayIcon.ActivationReason) -> None:
+        if reason in (QSystemTrayIcon.ActivationReason.Trigger, QSystemTrayIcon.ActivationReason.DoubleClick):
+            self._restore_window()
+
+    def _request_application_exit(self) -> None:
+        if self.worker is not None and self.worker.isRunning():
+            reply = QMessageBox.question(
+                self,
+                "確認結束程式",
+                "目前仍在整理資料。\n\n結束程式會在目前檔案安全處理完成後停止；已完成檔案會保留，之後可以繼續整理。",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No,
+            )
+            if reply != QMessageBox.StandardButton.Yes:
+                return
+            self._quit_after_cancel = True
+            self.worker.request_cancel()
+            self.lbl_stage.setText("取消已收到，將在目前檔案安全邊界停止…")
+            return
+        self._quit_application()
+
+    def _quit_application(self) -> None:
+        self._is_quitting = True
+        self.tray_icon.hide()
+        QApplication.instance().quit()
 
     def _init_ui(self) -> None:
         central_widget = QWidget(self)
@@ -1045,8 +1097,8 @@ class MainWindow(QMainWindow):
         self.workflow_state = WorkflowState.CANCELLED
         self.lbl_stage.setText("整理已取消，可稍後繼續。")
         self._update_action_state()
-        if self.pending_close:
-            self.close()
+        if self.pending_close or self._quit_after_cancel:
+            self._quit_application()
 
     def _detect_resume(self) -> None:
         if not self.output_dir:
@@ -1401,26 +1453,31 @@ class MainWindow(QMainWindow):
         event.ignore()
 
     def closeEvent(self, event: Any) -> None:
-        if self.worker is not None and self.worker.isRunning():
-            reply = QMessageBox.question(
-                self, "確認關閉",
-                "目前正在整理資料。\n\n若現在停止，已完成檔案會保留，下次可以繼續未完成工作。",
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                QMessageBox.StandardButton.No,
-            )
-            if reply == QMessageBox.StandardButton.Yes:
-                self.pending_close = True
-                self.worker.request_cancel()
-                self.lbl_stage.setText("取消已收到，將在目前檔案安全邊界停止…")
-                event.ignore()
-            else:
-                event.ignore()
-        else:
+        if self._is_quitting:
             event.accept()
+            return
+        self._request_application_exit()
+        event.ignore()
+
+    def changeEvent(self, event: QEvent) -> None:
+        super().changeEvent(event)
+        if (
+            event.type() == QEvent.Type.WindowStateChange
+            and self.isMinimized()
+            and self.tray_icon.isVisible()
+        ):
+            self.hide()
+            self.tray_icon.showMessage(
+                "Google 相簿 Takeout 整理工具",
+                "程式已縮小至系統列，整理會在背景繼續執行。",
+                QSystemTrayIcon.MessageIcon.Information,
+                4000,
+            )
 
 
 def main() -> None:
     app = QApplication(sys.argv)
+    app.setQuitOnLastWindowClosed(False)
     icon_path = Path(__file__).resolve().parent / "resources" / "app_icon.png"
     if not icon_path.exists():
         icon_path = Path(__file__).resolve().parent / "resources" / "app_icon.ico"
