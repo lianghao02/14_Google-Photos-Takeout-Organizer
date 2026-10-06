@@ -6,6 +6,16 @@
 
 `Takeout → 分析 → 人工確認 → 整理 → 驗證`
 
+輸出資料夾規格：[docs/匯出資料夾邏輯.txt](docs/匯出資料夾邏輯.txt)。
+
+## 專案概念與開發原因
+
+本工具把 Google Takeout 多分卷中的媒體及 Sidecar 轉成可核對的清冊與分類輸出。開發動機是下載後的檔案時間不一定等於拍攝時間，分卷又可能把媒體和中繼資料拆開，直接按檔案時間歸檔容易分類錯誤。
+
+設計採「分析 → 人工確認 → 複製 → 雜湊驗證」，來源不改寫，輸出不重新壓縮影像或重寫 EXIF。它聚焦 Takeout 的安全歸檔；日期不明確就保留在人工確認區，而非猜一個日期。
+
+**典型流程**：加入同批全部分卷 → 檢查來源與容量 → 整理 → 查看 Review／Unknown-Date → 核對 verification.json。
+
 ## 功能
 
 - **Copy-only 安全性**：不移動、不修改、不刪除、不覆寫原始 Takeout ZIP 或資料夾。
@@ -27,7 +37,7 @@
 - **不打包 EXE**：直接以 Python／`.venv` 執行，降低辦公室防毒軟體誤判的機率。
 - **首次自動設定**：啟動器會偵測 Python 3.13+、建立 `.venv`，並安裝 `requirements.txt`。
 - **後續靜默啟動**：環境就緒後會使用 `pythonw.exe`，不保留黑色命令列視窗。
-- **命令列**：亦可執行 `python -m google_photos_takeout_organizer.gui` 或 `gpto-gui`。
+- **命令列**：依下方 CLI 段完成專案模組安裝後，可執行 `.venv\Scripts\python.exe -B -s -m google_photos_takeout_organizer.gui`，避免套用全域 Python；RUN.bat 則由啟動器直接載入 src，不要求 editable 安裝。
 
 ## GUI 操作流程
 
@@ -60,8 +70,28 @@
 
 ## CLI
 
+以下指令在專案根目錄執行。先用 `pwsh -NoProfile -File scripts/start_gui.ps1 -NoLaunch` 準備環境，再以 `.venv\Scripts\python.exe -s -m pip install --no-deps -e .` 安裝專案模組。這是安裝流程，可能建立環境與下載缺少套件，不是唯讀檢查；本輪文件更新未執行安裝。
+
+inputs／work／output 是範例名稱，請換成實際來源與獨立輸出位置。
+
 ```powershell
-python -m google_photos_takeout_organizer.cli analyze D:\Takeout-001.zip --work work
-python -m google_photos_takeout_organizer.cli export --manifest work\manifest.json --output E:\GooglePhotos_Archive
-python -m google_photos_takeout_organizer.cli verify --manifest E:\GooglePhotos_Archive\manifest.json --output E:\GooglePhotos_Archive
+.venv\Scripts\python.exe -B -s -m google_photos_takeout_organizer.cli analyze .\inputs\Takeout-001.zip --work .\work
+.venv\Scripts\python.exe -B -s -m google_photos_takeout_organizer.cli export --manifest .\work\manifest.json --output .\output\GooglePhotos_Archive
+.venv\Scripts\python.exe -B -s -m google_photos_takeout_organizer.cli verify --manifest .\output\GooglePhotos_Archive\manifest.json --output .\output\GooglePhotos_Archive
 ```
+
+## 已知 Bug、限制與疑難排解
+
+以下區分已確認問題、功能限制及待驗證項目；歷史修正不代表舊發行包已自動更新，也不代表本次文件更新重新完成所有功能測試。
+
+| 狀態 | 情境 | 處理方式 |
+|---|---|---|
+| 資料限制 | Sidecar 缺失、跨分卷未完整加入或日期來源互相矛盾。 | 加入同批全部分卷，檢查 Review／Unknown-Date；雜湊一致只證明內容完整，不證明日期判讀正確。 |
+| 容量限制 | ZIP 大小的 2.5 倍只是容量預估。 | 處理中持續確認可用空間；高壓縮率、大量重複輸出與其他程式寫入會影響實際需求。 |
+| 續作限制 | 續作要求來源路徑、大小與修改時間符合先前工作階段。 | 保留原來源和工作資料，不任意搬動 .gpto_work；先查清差異再續作。 |
+
+日期來源優先序、UTC+8 日期衝突與 GUI／啟動相容性的歷史修正見 [CHANGELOG.md](CHANGELOG.md)。目前工作區以 Python 3.13 專案環境驗證；規格允許較新版本，不代表每個版本與乾淨電腦已實測。
+
+### 問題回報
+
+請提供使用版本／啟動方式、作業系統與相關環境、重現步驟、預期及實際結果，以及去識別的錯誤訊息或最小樣本。先保留現場與來源資料；不要附真實案件、完整帳號、密碼、Token 或 API Key。版本修正以對應原始碼與發行包為準。

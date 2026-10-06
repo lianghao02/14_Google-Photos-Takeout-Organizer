@@ -1,5 +1,71 @@
 # HANDOFF
 
+## 核心元資料 (Metadata)
+- **Repository**：lianghao02/Google-Photos-Takeout-Organizer
+- **Branch**：main
+- **Commit SHA**：0f5c03d2（本輪提交前基準；最新提交以 Git 記錄為準）
+- **Skill Version**：v1.0.0
+- **Task Type**：HANDOFF
+- **Local Path Hint**：14_Google-Photos-Takeout-Organizer
+
+---
+
+## 目前狀態
+本輪目錄整理完成；以下待驗證事項維持。舊交接原文保留於下方，屬歷史，不代表本輪 Git 或測試狀態。
+
+## 本輪目標
+依已授權目錄配置與舊產物清理要求，保留現有功能。
+
+## 基準與已確認事實 (Baseline & Confirmed Facts)
+中央 docs/project-layout/baseline.json、operations.json 保存本輪基準，HEAD/分支保持，前輪功能成果繼承。
+
+## 已完成 (Completed)
+2026-10-06 GitHub 同步交接：使用者已授權提交與推送前輪成果；本輪只提交已核對範圍。最新 Commit SHA、遠端同步與 CI 結果統一見控制中心 `docs/github-sync/RESULTS.md`，不將提交本身的 SHA 寫入同一份提交。
+
+2026-10-05 README 文件更新：補齊專案概念、開發原因、典型流程、已知 Bug／限制及回報方式，並依實際入口校正必要操作說明。本次沒有修改產品程式、環境或個人資料，未 Commit／Push；前輪成果與既有待辦繼承。文件檢核與逐案索引由控制中心 docs/readme-refresh/RESULTS.md 彙整，不代表本次重新驗收全部功能。
+
+匯出資料夾邏輯.txt 原樣移至 docs，繁中 README 補連結，清除快取；維持 src/tests/docs、既有 .venv、Copy-only 與 v1.2.0 功能成果。
+
+## 異動檔案 (Changed Files)
+上述明確項目與本交接；詳細清冊見中央 docs/project-layout/RESULTS.md。
+
+## 刻意未修改 (Do Not Do / Deliberately Omitted)
+業務演算法、現行環境、模型、有效測試素材及使用者原始資料未動；不覆寫未知修改，舊交接內容完整保留。
+
+## 尚未完成 (Remaining Work)
+- **P1 (阻斷/必須)**：無本輪整理阻斷。
+- **P2 (重要/當次)**：無本輪未完成事項；全新無 .venv 首次安裝流程仍未驗證，保留既有 Windows PowerShell 啟動器 BOM。
+- **P3 (改善建議/暫緩)**：未因整理擴大重構；正式發布另依 release-gate 驗證。
+
+## 驗證結果 (Validation)
+### 已執行測試與結果
+3.13 .venv 的 PySide6/Pillow/HEIF 及 pip check 通過；搬移文件雜湊一致。
+### 尚未驗證項目
+未重新驗收全部原生功能或其他電腦/Windows 10 發布環境。
+### 已知風險 (Known Risks)
+保留上述既有待辦與驗證邊界，不把清理宣稱為其修復。
+
+## Git 狀態
+- Commit：上述 SHA 為提交前基準；最新 SHA 見 `git log -1` 與中央同步報告。
+- Push：實際推送及遠端核對結果見中央 `docs/github-sync/RESULTS.md`。
+- Working Tree：最終狀態見中央同步報告；不含被忽略的環境、成品與使用者資料。
+- Branch：main。
+
+## 下一步建議動作 (Next Recommended Action)
+本輪停止擴大修改；日後提交前核對工作範圍並另取得授權。
+
+## 發布狀態 (Release Status)
+本輪未發布，保留現行成品。
+
+---
+
+## 承接的前輪交接（原文保留，屬歷史）
+
+
+> 2026-10-05 環境修復交接：本輪僅修正 AGENTS.md 的共用 Skill 正式來源為 configs/skills，程式碼與既有環境不變。Working Tree 為 Modified，未 Commit／Push；下列發布與功能紀錄為承接的前輪成果。
+
+# HANDOFF
+
 ## 目前狀態
 **可交付** — v1.2.0 已推送至 `main`，正式 tag 已建立；pytest 18/18 通過。
 
