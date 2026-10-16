@@ -49,11 +49,11 @@ def resolve(record: MediaRecord) -> None:
         return
     
     # When both are present and match, prefer EXIF local time if available, or JSON
-    value = exif or json_value or record.filename_date or record.folder_date
-    source = "EXIF" if exif else "GOOGLE_JSON" if json_value else "FILENAME" if record.filename_date else "FOLDER" if record.folder_date else "UNKNOWN"
+    value = exif or json_value or record.filename_date or record.folder_date or record.filesystem_date
+    source = "EXIF" if exif else "GOOGLE_JSON" if json_value else "FILENAME" if record.filename_date else "FOLDER" if record.folder_date else "FILESYSTEM" if record.filesystem_date else "UNKNOWN"
     record.resolved_date = value
     record.date_source = source
-    record.date_confidence = "HIGH" if (json_value and exif) else "MEDIUM" if (json_value or exif) else "LOW" if value else "UNKNOWN"
+    record.date_confidence = "HIGH" if (json_value and exif) else "MEDIUM" if (json_value or exif) else "LOW" if (record.filename_date or record.folder_date) else "FALLBACK" if record.filesystem_date else "UNKNOWN"
     record.date_precision = "DATETIME" if value and "T" in value else "DATE" if value and len(value) >= 10 else "YEAR_MONTH" if value and len(value) == 7 else "YEAR" if value and len(value) == 4 else "UNKNOWN"
     if not value:
         record.warnings.append(str(Code.NO_DATE))

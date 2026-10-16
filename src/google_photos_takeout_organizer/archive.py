@@ -8,23 +8,56 @@ from .models import Code
 
 
 COPY_CHUNK_SIZE = 4 * 1024 * 1024
+MAX_COMPRESSION_RATIO = 1000.0
+
+
+def decode_member_name(member: zipfile.ZipInfo) -> str:
+    """修復未設定 Bit 11 (0x800) 的 CP437/Big5 解碼 Takeout ZIP 檔名"""
+    filename = member.filename
+    if not (member.flag_bits & 0x800):
+        for encoding in ("utf-8", "big5", "cp950"):
+            try:
+                raw_bytes = filename.encode("cp437")
+                return raw_bytes.decode(encoding)
+            except (UnicodeEncodeError, UnicodeDecodeError):
+                pass
+    return filename
 
 
 def extract_zip(
     source: Path,
     target: Path,
     cancel_requested: Callable[[], bool] | None = None,
+    progress_callback: Callable[[int, int, str], None] | None = None,
 ) -> list[str]:
     warnings: list[str] = []
     target.mkdir(parents=True, exist_ok=True)
     root = target.resolve()
     try:
         with zipfile.ZipFile(source) as archive:
-            for member in archive.infolist():
+            members = archive.infolist()
+            total_members = len(members)
+            for idx, member in enumerate(members, 1):
                 if cancel_requested and cancel_requested():
                     raise InterruptedError("CANCELLED")
 
-                destination = (target / member.filename).resolve()
+                # 1. 拒絕符號連結 (Symlinks)
+                mode = (member.external_attr >> 16) & 0o170000
+                if mode == 0o120000:
+                    continue
+
+                # 2. 檢查潛在 Zip Bomb 攻擊
+                if member.file_size > 0 and member.compress_size > 0:
+                    if (member.file_size / float(member.compress_size)) > MAX_COMPRESSION_RATIO:
+                        warnings.append(f"{Code.ZIP_BOMB}:{member.filename}")
+                        continue
+
+                # 3. 檔名編碼修復 (CP437/Big5 轉 UTF-8)
+                decoded_name = decode_member_name(member)
+                if progress_callback:
+                    progress_callback(idx, total_members, decoded_name)
+                destination = (target / decoded_name).resolve()
+
                 if destination != root and root not in destination.parents:
                     warnings.append(f"{Code.ZIP_PATH_TRAVERSAL}:{member.filename}")
                     continue

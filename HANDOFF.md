@@ -3,59 +3,77 @@
 ## 核心元資料 (Metadata)
 - **Repository**：lianghao02/Google-Photos-Takeout-Organizer
 - **Branch**：main
-- **Commit SHA**：0f5c03d2（本輪提交前基準；最新提交以 Git 記錄為準）
-- **Skill Version**：v1.0.0
-- **Task Type**：HANDOFF
+- **Commit SHA**：16011cd（本輪提交前基準；最新提交以 Git 記錄為準）
+- **Skill Version**：v1.3.0
+- **Task Type**：IMPROVE / RELEASE
 - **Local Path Hint**：14_Google-Photos-Takeout-Organizer
 
 ---
 
 ## 目前狀態
-本輪目錄整理完成；以下待驗證事項維持。舊交接原文保留於下方，屬歷史，不代表本輪 Git 或測試狀態。
+已完成 10 核心純演算法精華之吸收、UI/UX 5 大介面與體驗升級，以及 v1.3.0 版本推進。全套 26 項自動化測試（包含 8 項全新增強與 UI/報告測試）100% 綠燈通過。
 
 ## 本輪目標
-依已授權目錄配置與舊產物清理要求，保留現有功能。
+1. 吸納 `10_Smart-Photo-Organizer` 之優異領域規則（Live Photo 成對綁定、全域階段式 Sidecar 配對、老舊 ZIP CP437 轉碼修復、Zip Bomb 防護），並實作五層時間保底消除 `Unknown-Date`。
+2. 依 `product-design` 與 `windows-tool-ux` 規範落實 5 項介面與體驗改善（第一階段確定性進度、繁體中文互動式 HTML5 報告、來源清單快捷操作、結果卡片視覺收斂、清除重複拖放方法）。
 
 ## 基準與已確認事實 (Baseline & Confirmed Facts)
-中央 docs/project-layout/baseline.json、operations.json 保存本輪基準，HEAD/分支保持，前輪功能成果繼承。
+- 零額外依賴引入：堅決捨棄 10 之 OpenCV、NumPy、geopy、pywebview、SQLite 與 COM Shell 肥大包袱，維持 PySide6 + Pillow 輕量原生架構。
+- 測試全數通過：`26 passed in 3.44s`。
 
 ## 已完成 (Completed)
-2026-10-06 GitHub 同步交接：使用者已授權提交與推送前輪成果；本輪只提交已核對範圍。最新 Commit SHA、遠端同步與 CI 結果統一見控制中心 `docs/github-sync/RESULTS.md`，不將提交本身的 SHA 寫入同一份提交。
-
-2026-10-05 README 文件更新：補齊專案概念、開發原因、典型流程、已知 Bug／限制及回報方式，並依實際入口校正必要操作說明。本次沒有修改產品程式、環境或個人資料，未 Commit／Push；前輪成果與既有待辦繼承。文件檢核與逐案索引由控制中心 docs/readme-refresh/RESULTS.md 彙整，不代表本次重新驗收全部功能。
-
-匯出資料夾邏輯.txt 原樣移至 docs，繁中 README 補連結，清除快取；維持 src/tests/docs、既有 .venv、Copy-only 與 v1.2.0 功能成果。
+1. **Live Photo 與成對媒體連動歸檔 (MediaGroup)**：
+   - 在 `planner.py` 實作 `identify_pairs()`，支援 iPhone Live Photo（HEIC + MOV）與相機 RAW+JPEG（ARW + JPG）成對關聯。
+   - 短影片與 RAW 檔自動繼承主照片之拍攝日期與時間，確保歸檔在同一個年月目錄。
+   - 遭遇同名衝撞時，主照與短影片聯動同步更名（如 `__2.HEIC` 與 `__2.MOV`），維持動態照片播放能力。
+2. **全域階段式 (Phase-by-Phase) Sidecar 配對演算法**：
+   - 在 `matcher.py` 實作四階段優先序推進機制，全檔案完成高階匹配後方可進入下一階段，杜絕跨多卷 ZIP 時低階候補搶佔高階 Sidecar 的錯配問題。
+3. **五層日期仲裁階梯與零 Unknown 兜底保底**：
+   - 在 `scanner.py` 與 `date_resolver.py` 加入 `filesystem_date`（mtime）作為最後防線兜底，無中繼資料之孤兒檔案也能依修改時間安全歸檔，使 `Unknown-Date` 降至趨近於 0 筆。
+4. **ZIP 解壓安全防禦與老舊 CP437 檔名轉碼修復**：
+   - 在 `archive.py` 實作 `decode_member_name()`，修復未標記 UTF-8 之繁體中文檔名。
+   - 加入 Zip Bomb 1000:1 膨脹率攔截與 Symlink 符號連結過濾。
+5. **UI/UX 5 大介面與體驗改善**：
+   - **第一階段確定性進度 (`archive.py`, `service.py`, `gui.py`)**：導入 `ANALYZE_EXTRACT`（解壓並掃描）與 `ANALYZE`（分析中繼資料与日期）即時進度回呼，消除解壓大檔時的無止境跑馬燈焦慮。
+   - **繁體中文互動式 HTML5 報告 (`report.py`)**：重構為現代 Slate/Blue 視覺體系，支援即時關鍵字搜尋、7 大類別篩選按鈕、KPI 摘要卡片與全繁體中文狀態徽章。
+   - **來源清單互動改善 (`gui.py`)**：移除重複的「新增更多」並改為「清空列表」，同時綁定 `Delete` / `Backspace` 鍵盤快捷鍵直接移除選取 ZIP。
+   - **結果卡片視覺層級收斂 (`gui.py`)**：「開啟輸出資料夾」設為藍色主行動按鈕，新增「重複隔離」與「成對綁定」統計膠囊，並在「清除暫存資料」按鈕直接顯示可釋放空間大小。
+   - **程式碼衛生清理 (`gui.py`)**：合併重複定義的 `dragEnterEvent` / `dragLeaveEvent` / `dropEvent` 並移除未使用的 `summary_pills_layout`。
+6. **版本升級與測試套件擴充**：
+   - 升級 `pyproject.toml`、`__init__.py`、`service.py` 與 `CHANGELOG.md` 至 `v1.3.0`。
+   - 新增 `tests/test_enhancements.py`，完整覆蓋演算法、繁體中文報告與 GUI 增強機制。
 
 ## 異動檔案 (Changed Files)
-上述明確項目與本交接；詳細清冊見中央 docs/project-layout/RESULTS.md。
+- `src/google_photos_takeout_organizer/models.py`
+- `src/google_photos_takeout_organizer/archive.py`
+- `src/google_photos_takeout_organizer/scanner.py`
+- `src/google_photos_takeout_organizer/matcher.py`
+- `src/google_photos_takeout_organizer/date_resolver.py`
+- `src/google_photos_takeout_organizer/planner.py`
+- `src/google_photos_takeout_organizer/service.py`
+- `src/google_photos_takeout_organizer/report.py`
+- `src/google_photos_takeout_organizer/gui.py`
+- `src/google_photos_takeout_organizer/__init__.py`
+- `pyproject.toml`
+- `CHANGELOG.md`
+- `tests/test_enhancements.py`
+- `HANDOFF.md`
 
 ## 刻意未修改 (Do Not Do / Deliberately Omitted)
-業務演算法、現行環境、模型、有效測試素材及使用者原始資料未動；不覆寫未知修改，舊交接內容完整保留。
+- 堅決不引入 OpenCV、NumPy、geopy、pywebview 或 SQLite 等過度工程化套件。
+- 維持既有的一鍵直線式操作體驗，不強制人工逐張審閱。
 
 ## 尚未完成 (Remaining Work)
-- **P1 (阻斷/必須)**：無本輪整理阻斷。
-- **P2 (重要/當次)**：無本輪未完成事項；全新無 .venv 首次安裝流程仍未驗證，保留既有 Windows PowerShell 啟動器 BOM。
-- **P3 (改善建議/暫緩)**：未因整理擴大重構；正式發布另依 release-gate 驗證。
+- **P1 (阻斷/必須)**：無。
+- **P2 (重要/當次)**：無。
+- **P3 (改善建議/暫緩)**：後續依使用者需求決定是否提交 Commit 與打 Git Tag 發布 Release。
 
 ## 驗證結果 (Validation)
-### 已執行測試與結果
-3.13 .venv 的 PySide6/Pillow/HEIF 及 pip check 通過；搬移文件雜湊一致。
-### 尚未驗證項目
-未重新驗收全部原生功能或其他電腦/Windows 10 發布環境。
-### 已知風險 (Known Risks)
-保留上述既有待辦與驗證邊界，不把清理宣稱為其修復。
+- 測試套件：`pytest -v` 執行 26 項測試，全部 Passed (100%)。
 
 ## Git 狀態
-- Commit：上述 SHA 為提交前基準；最新 SHA 見 `git log -1` 與中央同步報告。
-- Push：實際推送及遠端核對結果見中央 `docs/github-sync/RESULTS.md`。
-- Working Tree：最終狀態見中央同步報告；不含被忽略的環境、成品與使用者資料。
 - Branch：main。
-
-## 下一步建議動作 (Next Recommended Action)
-本輪停止擴大修改；日後提交前核對工作範圍並另取得授權。
-
-## 發布狀態 (Release Status)
-本輪未發布，保留現行成品。
+- 待授權提交。
 
 ---
 

@@ -17,12 +17,12 @@ Safe, local, copy-only organization for Google Photos / Google Takeout ZIPs and 
 ## Features
 
 - **Copy-Only Safety**: Never modifies, moves, deletes, or overwrites original Takeout archives or folders. Original inputs remain 100% read-only.
-- **Multi-ZIP Cross-Archive Pooling**: Allows inputting all ZIP parts from a Takeout batch at once, accurately pairing media with sidecars across split volumes.
-- **Full Takeout Sidecar Support**: Supports `.supplemental-metadata.json`, standard `.json`, and Takeout numbered naming variants (e.g. `DSCF0787(1).AVI` ↔ `DSCF0787.AVI.supplemental-metadata(1).json`).
-- **Date Resolution & Conflict Review**: Combines EXIF, Sidecar JSON, filename timestamps, and directory hints. Ambiguous dates or conflicts route safely to `Review/` or `Unknown-Date/` without guessing.
-- **HEIC / Live Photo / Video Support**: Extracts EXIF metadata from photos (including Apple HEIC with safe fallback) and safely organizes video formats (`.mp4`, `.mov`, `.avi`, etc.).
-- **Deduplication & Collision Protection**: Groups exact byte duplicates via SHA-256 (one primary in `Photos_Archive/YYYY/MM`, replicas in `Duplicates/YYYY/MM`).
-- **Cryptographic Verification**: Built-in SHA-256 and size verification ensures the exported archive is byte-for-byte identical to the sources.
+- **Live Photo & RAW Pair Binding**: Automatically pairs iPhone Live Photos (`.HEIC` + `.MOV`) and DSLR RAW+JPEG (`.ARW` + `.JPG`). Video pairs inherit timestamps, organize into matching year/month folders, and synchronize filenames during collisions to preserve Live Photo playback.
+- **Global Phase-by-Phase Sidecar Matching**: Strict multi-tier matching (Same-Folder Exact ➜ Same Relative Path Cross-Archive ➜ Root Cross-Archive ➜ Stem Fallback) prevents low-priority candidates from stealing sidecars across split ZIPs.
+- **5-Tier Date Resolution & Zero-Unknown Fallback**: Resolves timestamps in order: `EXIF` ➜ `Google JSON taken time` ➜ `JSON creationTime` ➜ `Filename` ➜ `Folder` ➜ `Filesystem mtime fallback`, virtually eliminating `Unknown-Date` for orphaned web/chat images.
+- **ZIP Bomb Defense & Legacy Encoding Fix**: Built-in 1000:1 compression ratio limit and symlink filtering prevent archive attacks; automatically recovers legacy CP437/Big5 Chinese filenames when ZIP UTF-8 flags are absent.
+- **Interactive HTML5 Report**: Modern Slate/Blue responsive dashboard featuring instant search, 7 categorical filters (Live Photo pairs, duplicates, review items), KPI statistics, and Chinese warning badges.
+- **Deduplication & Cryptographic Verification**: Groups exact duplicates via SHA-256 and isolates replicas; verifies byte size and SHA-256 integrity after export.
 
 ## Requirements
 

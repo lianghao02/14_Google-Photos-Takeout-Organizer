@@ -6,7 +6,7 @@ from typing import Any
 
 
 class Code(StrEnum):
-    INVALID_ZIP = "INVALID_ZIP"; ZIP_PATH_TRAVERSAL = "ZIP_PATH_TRAVERSAL"
+    INVALID_ZIP = "INVALID_ZIP"; ZIP_PATH_TRAVERSAL = "ZIP_PATH_TRAVERSAL"; ZIP_BOMB = "ZIP_BOMB"
     INVALID_JSON = "INVALID_JSON"; AMBIGUOUS_SIDECAR = "AMBIGUOUS_SIDECAR"
     MEDIA_WITHOUT_JSON = "MEDIA_WITHOUT_JSON"; JSON_ORPHAN = "JSON_ORPHAN"
     CORRUPT_MEDIA = "CORRUPT_MEDIA"; UNSUPPORTED_FORMAT = "UNSUPPORTED_FORMAT"
@@ -26,6 +26,7 @@ class MediaRecord:
     album_names: list[str] = field(default_factory=list); duplicate_group_id: str | None = None
     duplicate_status: str = "UNIQUE"; is_primary: bool = True; planned_output_path: str | None = None
     output_filename: str | None = None; export_status: str = "PLANNED"
+    pair_group_id: str | None = None; pair_role: str | None = None
     warnings: list[str] = field(default_factory=list); errors: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]: return asdict(self)

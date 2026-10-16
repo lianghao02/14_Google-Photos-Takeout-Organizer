@@ -1,5 +1,6 @@
 from __future__ import annotations
 import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 from .models import MediaRecord, Code
 from .utils import dated_from_folder, dated_from_name
@@ -12,8 +13,13 @@ def scan(root: Path, archive_id: str) -> tuple[list[MediaRecord], list[Path]]:
         relative = item.relative_to(root).as_posix(); suffix = item.suffix.lower()
         if suffix == ".json": sidecars.append(item); continue
         kind = "photo" if suffix in IMAGES else "video" if suffix in VIDEOS else "unsupported"
-        record = MediaRecord(str(uuid.uuid5(uuid.NAMESPACE_URL, f"{archive_id}/{relative}")), archive_id, str(item), relative, item.name, suffix, item.stat().st_size, kind)
+        st = item.stat()
+        record = MediaRecord(str(uuid.uuid5(uuid.NAMESPACE_URL, f"{archive_id}/{relative}")), archive_id, str(item), relative, item.name, suffix, st.st_size, kind)
         record.filename_date = dated_from_name(item.name); record.folder_date = dated_from_folder(relative)
+        try:
+            record.filesystem_date = datetime.fromtimestamp(st.st_mtime, timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        except (ValueError, OSError):
+            pass
         if kind == "unsupported": record.warnings.append(str(Code.UNSUPPORTED_FORMAT))
         media.append(record)
     return media, sidecars
