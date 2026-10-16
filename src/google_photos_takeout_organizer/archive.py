@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import os
 import zipfile
+from datetime import datetime
 from collections.abc import Callable
 from pathlib import Path
 
@@ -73,6 +75,13 @@ def extract_zip(
                             if cancel_requested and cancel_requested():
                                 raise InterruptedError("CANCELLED")
                             output_stream.write(chunk)
+                    # ZIP 儲存的是不含時區的本地修改時間，還原後才可作為日期保底。
+                    try:
+                        timestamp = datetime(*member.date_time).timestamp()
+                    except (ValueError, OverflowError, OSError):
+                        timestamp = 0
+                        warnings.append(f"ZIP_INVALID_TIMESTAMP:{member.filename}")
+                    os.utime(partial_destination, (timestamp, timestamp))
                     partial_destination.replace(destination)
                 except InterruptedError:
                     partial_destination.unlink(missing_ok=True)

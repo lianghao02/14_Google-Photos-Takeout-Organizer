@@ -10,10 +10,12 @@ RAW_EXTS = {".arw", ".cr2", ".cr3", ".nef", ".dng", ".raf", ".rw2", ".orf"}
 
 def identify_pairs(records: list[MediaRecord]) -> dict[str, MediaRecord]:
     """識別 Live Photo (照片 + MOV/MP4) 與 RAW+JPG 成對關係。"""
-    by_parent: dict[str, list[MediaRecord]] = {}
+    by_parent: dict[tuple[str, str], list[MediaRecord]] = {}
     for r in records:
         parent = str(PurePosixPath(r.relative_path).parent)
-        by_parent.setdefault(parent, []).append(r)
+        r.pair_group_id = None
+        r.pair_role = None
+        by_parent.setdefault((r.archive_id, parent), []).append(r)
 
     child_to_primary: dict[str, MediaRecord] = {}
     for parent, group in by_parent.items():
@@ -29,6 +31,11 @@ def identify_pairs(records: list[MediaRecord]) -> dict[str, MediaRecord]:
             photos = [m for m in stem_members if m.extension.lower() in PHOTO_EXTS]
             live_videos = [m for m in stem_members if m.extension.lower() in LIVE_VIDEO_EXTS]
             raws = [m for m in stem_members if m.extension.lower() in RAW_EXTS]
+
+            # 同來源、同資料夾且主照片唯一才成對，避免僅憑同名誤綁。
+            companions = live_videos or raws
+            if len(photos) != 1 or len({m.extension.lower() for m in companions}) != len(companions):
+                continue
 
             if photos and live_videos:
                 primary = photos[0]
@@ -67,6 +74,12 @@ def identify_pairs(records: list[MediaRecord]) -> dict[str, MediaRecord]:
 
 def plan(records: list[MediaRecord]) -> None:
     child_to_primary = identify_pairs(records)
+    children: dict[str, list[MediaRecord]] = {}
+    for child in records:
+        child.planned_output_path = None
+        child.output_filename = None
+        if child.id in child_to_primary:
+            children.setdefault(child_to_primary[child.id].id, []).append(child)
     used: set[str] = set()
     duplicate_index: dict[str, int] = {}
 
@@ -74,9 +87,9 @@ def plan(records: list[MediaRecord]) -> None:
     sorted_records = sorted(
         records,
         key=lambda r: (
+            r.pair_role in ("LIVE_PHOTO_VIDEO", "RAW_PAIR"),
             r.duplicate_group_id or "",
             not r.is_primary,
-            r.pair_role in ("LIVE_PHOTO_VIDEO", "RAW_PAIR"),
             r.relative_path,
         ),
     )
@@ -86,15 +99,7 @@ def plan(records: list[MediaRecord]) -> None:
 
         # 如果此檔案是成對的副成員 (例如 Live Photo MOV 或 RAW)，且主照片已規劃路徑
         if record.id in child_to_primary:
-            primary = child_to_primary[record.id]
-            if primary.planned_output_path:
-                primary_p = PurePosixPath(primary.planned_output_path)
-                folder = str(primary_p.parent)
-                candidate = f"{folder}/{primary_p.stem}{suffix}"
-                used.add(candidate.lower())
-                record.planned_output_path = candidate
-                record.output_filename = PurePosixPath(candidate).name
-                continue
+            continue
 
         if record.is_primary and any(code in record.warnings for code in ("DATE_CONFLICT", "AMBIGUOUS_SIDECAR", "INVALID_JSON")):
             if "DATE_CONFLICT" in record.warnings:
@@ -125,13 +130,20 @@ def plan(records: list[MediaRecord]) -> None:
         else:
             name = original
 
-        candidate = f"{folder}/{name}"
+        # 整組預留名稱，避免照片名稱可用、伴隨影片名稱已被占用。
+        members = [record, *children.get(record.id, [])]
+        candidate_stem = PurePosixPath(name).stem
         number = 2
-        while candidate.lower() in used:
-            candidate = f"{folder}/{stem}__{number}{suffix}"
+        while True:
+            candidates = [f"{folder}/{candidate_stem}{PurePosixPath(m.original_filename).suffix}" for m in members]
+            if all(candidate.lower() not in used for candidate in candidates):
+                break
+            candidate_stem = f"{stem}__{number}"
             number += 1
-            record.warnings.append("OUTPUT_COLLISION")
+            if "OUTPUT_COLLISION" not in record.warnings:
+                record.warnings.append("OUTPUT_COLLISION")
 
-        used.add(candidate.lower())
-        record.planned_output_path = candidate
-        record.output_filename = PurePosixPath(candidate).name
+        for member, candidate in zip(members, candidates):
+            used.add(candidate.lower())
+            member.planned_output_path = candidate
+            member.output_filename = PurePosixPath(candidate).name

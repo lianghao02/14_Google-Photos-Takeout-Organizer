@@ -17,7 +17,8 @@ def scan(root: Path, archive_id: str) -> tuple[list[MediaRecord], list[Path]]:
         record = MediaRecord(str(uuid.uuid5(uuid.NAMESPACE_URL, f"{archive_id}/{relative}")), archive_id, str(item), relative, item.name, suffix, st.st_size, kind)
         record.filename_date = dated_from_name(item.name); record.folder_date = dated_from_folder(relative)
         try:
-            record.filesystem_date = datetime.fromtimestamp(st.st_mtime, timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+            if st.st_mtime > 0:
+                record.filesystem_date = datetime.fromtimestamp(st.st_mtime, timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
         except (ValueError, OSError):
             pass
         if kind == "unsupported": record.warnings.append(str(Code.UNSUPPORTED_FORMAT))

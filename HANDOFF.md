@@ -1,6 +1,63 @@
 # HANDOFF
 
 ## 核心元資料 (Metadata)
+- **Repository**：lianghao02/14_Google-Photos-Takeout-Organizer
+- **Branch**：main
+- **Commit SHA**：54a9692cc2f36ba980f6f30765e78cc4b5e928da（本輪修改前基準；交付提交以包含本交接的 Git 記錄為準）
+- **Skill Version**：v1.0.0
+- **Task Type**：FIX
+- **Local Path Hint**：14_Google-Photos-Takeout-Organizer
+
+## 目前狀態
+2026-10-16：兩項已重現問題已完成修正與回歸驗證，本輪提交並推送原始碼。既有 v1.3.0 Release 不包含本輪修正。
+
+## 本輪目標
+修正跨 ZIP 成對、成對檔名衝突及解壓日期保底。
+
+## 基準與已確認事實 (Baseline & Confirmed Facts)
+起始 main／54a9692，工作目錄乾淨；GitHub API 已確認最新 Release 為 v1.3.0。
+
+## 已完成 (Completed)
+成對限制同 archive_id 與相對資料夾；整組檢查並預留輸出名稱。解壓還原 ZIP 修改時間；無效時間列警告並保留 Unknown-Date。README 移除零 Unknown 保證。
+
+## 異動檔案 (Changed Files)
+archive.py、planner.py、scanner.py、tests/test_regressions.py、README.md、README.zh-TW.md、HANDOFF.md。
+
+## 刻意未修改 (Do Not Do / Deliberately Omitted)
+未修改來源資產、既有發布包、全域憲法與共用 Skills；本輪提交並推送既有修正，不另建立 Release。
+
+## 尚未完成 (Remaining Work)
+- **P1 (阻斷/必須)**：本輪已重現的 Google 相簿阻斷缺陷已修正；舊發布包仍待正式修補。
+- **P2 (重要/當次)**：真人 Takeout、Windows GUI 人工操作與跨電腦驗收尚未執行。ZIP 修改時間不含時區，且不等於拍攝時間。舊 manifest 不會自動修復，須由來源 ZIP 重新分析。
+- **P3 (改善建議/暫緩)**：其他專案重構不在本輪範圍。
+
+## 驗證結果 (Validation)
+### 已執行測試與結果
+修正前新增 5 項回歸案例全部失敗；修正後完整 pytest 31／31 通過，包含實際合成 ZIP 分析、匯出、SHA-256 驗證及來源雜湊不變。
+### 尚未驗證項目
+真人 Takeout、Windows GUI 人工操作與跨電腦驗收尚未執行。ZIP 修改時間不含時區，且不等於拍攝時間。舊 manifest 不會自動修復，須由來源 ZIP 重新分析。
+### 已知風險 (Known Risks)
+原始碼修正不會自動更新既有下載包或正式部署。
+
+## Git 狀態
+- Commit：本輪差異獨立提交；SHA 以包含本交接的 Git 記錄為準。
+- Push：交付時核對 HEAD 與遠端追蹤分支一致。
+- Working Tree：提交後以 git status 確認，未納入無關修改。
+- Branch：main。
+
+## 下一步建議動作 (Next Recommended Action)
+原始碼修正同步後，正式修補發布仍須另決定版號、打包及驗證 Release。
+
+## 發布狀態 (Release Status)
+本機修正已通過自動測試；修補版尚未發布。
+
+---
+
+## 歷史交接快照（以下不是當前待辦或測試結果）
+
+# HANDOFF
+
+## 核心元資料 (Metadata)
 - **Repository**：lianghao02/Google-Photos-Takeout-Organizer
 - **Branch**：main
 - **Commit SHA**：16011cd（本輪提交前基準；最新提交以 Git 記錄為準）
