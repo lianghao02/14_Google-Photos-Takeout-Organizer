@@ -58,7 +58,7 @@ try {
         if (-not (Test-Path -LiteralPath $requirementsFile)) { throw '找不到 requirements.txt。' }
         Write-Host '[2/3] 正在安裝必要套件，首次啟動可能需要幾分鐘…' -ForegroundColor Cyan
         & $venvPython -m pip install --disable-pip-version-check -r $requirementsFile
-        if ($LASTEXITCODE -ne 0 -or -not (Test-RequiredModules -PythonExe $venvPython)) { throw '必要套件安裝失敗。請確認網路連線後重試。' }
+        if ($LASTEXITCODE -ne 0 -or -not (Test-RequiredModules -PythonExe $venvPython)) { throw '必要套件安裝失敗。請查看安裝訊息；若提到 Long Path 或深層檔案找不到，請將整個專案複製到較短路徑後再試；否則請確認網路連線。' }
     }
 
     if ($NoLaunch) {

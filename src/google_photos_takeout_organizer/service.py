@@ -2,6 +2,7 @@ from __future__ import annotations
 import json, logging, uuid
 from pathlib import Path
 from typing import Callable
+from . import __version__
 from .archive import extract_zip
 from .scanner import scan
 from .matcher import match
@@ -66,7 +67,7 @@ def analyze(
     }
     manifest = {
         "schema_version": "0.1",
-        "app_version": "1.3.0",
+        "app_version": __version__,
         "dataset_id": str(uuid.uuid4()),
         "input_archives": archives,
         "media_records": [r.to_dict() for r in records],

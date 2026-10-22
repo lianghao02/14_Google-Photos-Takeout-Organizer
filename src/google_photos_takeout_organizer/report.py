@@ -1,6 +1,7 @@
 from __future__ import annotations
 import html
 from pathlib import Path
+from . import __version__
 
 
 DATE_SOURCE_LABELS: dict[str, str] = {
@@ -278,7 +279,7 @@ def write_report(manifest: dict, path: Path) -> None:
 <div class="container">
   <header>
     <h1>Google 相簿 Takeout 整理與驗證報告</h1>
-    <p class="subtitle">本報告由 Google 相簿 Takeout 整理工具 (v{html.escape(str(manifest.get("app_version", "1.3.0")))}) 自動產出 · 原始檔案維持唯讀無修改</p>
+    <p class="subtitle">本報告由 Google 相簿 Takeout 整理工具 (v{html.escape(str(manifest.get("app_version", __version__)))}) 自動產出 · 原始檔案維持唯讀無修改</p>
   </header>
 
   <div class="kpi-grid">
