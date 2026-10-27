@@ -3,7 +3,7 @@
 ## 核心元資料 (Metadata)
 - **Repository**：lianghao02/14_Google-Photos-Takeout-Organizer
 - **Branch**：main
-- **Commit SHA**：e21f691e9089f48dcab29fcbd99660c00c7363d3（本輪修改前基準，本輪尚未提交）
+- **Commit SHA**：e21f691e9089f48dcab29fcbd99660c00c7363d3（本輪修改前基準，本輪已提交，最新提交以 Git 記錄為準）
 - **Skill Version**：v1.0.0
 - **Task Type**：FIX / HANDOFF
 - **Local Path Hint**：14_Google-Photos-Takeout-Organizer
