@@ -31,6 +31,8 @@ from PySide6.QtWidgets import (
     QTextEdit,
 )
 
+EMPTY_HINT_TEXT = "📦  將 Google Takeout ZIP 拖曳至此\n\n或按下方「加入 ZIP 檔案」選擇（支援多卷分卷自動合併）"
+
 APP_STYLESHEET = """
 QMainWindow, QWidget#centralWidget {
     background-color: #F8FAFC;
@@ -58,16 +60,17 @@ QGroupBox {
     background-color: #FFFFFF;
     border: 1px solid #E2E8F0;
     border-radius: 10px;
-    margin-top: 12px;
-    padding-top: 16px;
+    margin-top: 0;
+    padding-top: 30px;
 }
 
 QGroupBox::title {
-    subcontrol-origin: margin;
+    subcontrol-origin: padding;
     subcontrol-position: top left;
-    left: 12px;
-    padding: 0 6px;
-    background-color: #FFFFFF;
+    left: 16px;
+    top: 10px;
+    padding: 0;
+    background-color: transparent;
 }
 
 QLineEdit {
@@ -467,6 +470,7 @@ class MainWindow(QMainWindow):
         self._init_ui()
         self._init_system_tray()
         self.setStyleSheet(APP_STYLESHEET)
+        self._update_source_status()
         self._update_action_state()
 
     def _init_system_tray(self) -> None:
@@ -543,7 +547,7 @@ class MainWindow(QMainWindow):
 
         content_container = QWidget(scroll_content)
         content_container.setObjectName("contentContainer")
-        content_container.setMaximumWidth(840)
+        content_container.setMaximumWidth(780)
 
         main_layout = QVBoxLayout(content_container)
         main_layout.setSpacing(16)
@@ -564,16 +568,17 @@ class MainWindow(QMainWindow):
         self.src_group = QGroupBox("來源 Takeout ZIP", self)
         src_layout = QVBoxLayout(self.src_group)
         src_layout.setSpacing(10)
-        src_layout.setContentsMargins(16, 14, 16, 14)
+        src_layout.setContentsMargins(16, 0, 16, 14)
 
         # 來源列表與拖曳空狀態提示卡片 (採用 QStackedLayout 徹底解決小視窗水平截斷問題)
         list_container = QWidget(self)
+        list_container.setFixedHeight(120)
         self.list_stack = QStackedLayout(list_container)
         self.list_stack.setContentsMargins(0, 0, 0, 0)
 
         # 現代化虛線拖曳卡片（空狀態時呈現，滿版自適應寬度，支援點擊選檔）
         self.lbl_empty_hint = QLabel(
-            "📦  將 Google Takeout ZIP 拖曳至此\n\n或點擊「選擇 ZIP」加入檔案（支援多卷分卷自動合併）",
+            EMPTY_HINT_TEXT,
             self,
         )
         self.lbl_empty_hint.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -648,7 +653,7 @@ class MainWindow(QMainWindow):
         out_group = QGroupBox("輸出目標目錄", self)
         out_layout = QVBoxLayout(out_group)
         out_layout.setSpacing(10)
-        out_layout.setContentsMargins(16, 14, 16, 14)
+        out_layout.setContentsMargins(16, 0, 16, 14)
 
         out_input_layout = QHBoxLayout()
         out_input_layout.setSpacing(8)
@@ -670,8 +675,8 @@ class MainWindow(QMainWindow):
         out_layout.addWidget(self.lbl_disk_info)
 
         # 安全提示 (整合於輸出卡片底部，明確有安全感)
-        lbl_safety = QLabel("✓ 原始 Takeout 壓縮檔安全保留，不會被移動、修改或刪除", self)
-        lbl_safety.setStyleSheet("color: #16A34A; font-weight: bold; font-size: 12px;")
+        lbl_safety = QLabel("原始 Takeout 壓縮檔只會被讀取，不會被移動、修改或刪除。", self)
+        lbl_safety.setStyleSheet("color: #64748B; font-size: 12px;")
         out_layout.addWidget(lbl_safety)
 
         main_layout.addWidget(out_group)
@@ -689,11 +694,16 @@ class MainWindow(QMainWindow):
         cta_layout.addStretch()
         main_layout.addLayout(cta_layout)
 
+        self.lbl_start_hint = QLabel("", self)
+        self.lbl_start_hint.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.lbl_start_hint.setStyleSheet("color: #64748B; font-size: 12px;")
+        main_layout.addWidget(self.lbl_start_hint)
+
         # 5. 處理進度區塊 (平時隱藏，點擊開始整理後即時展現)
         self.progress_group = QGroupBox("處理進度", self)
         prog_layout = QVBoxLayout(self.progress_group)
         prog_layout.setSpacing(10)
-        prog_layout.setContentsMargins(16, 14, 16, 14)
+        prog_layout.setContentsMargins(16, 0, 16, 14)
 
         # Stepper 頂部列（含流程指示與右側取消按鈕）
         stepper_bar_layout = QHBoxLayout()
@@ -745,7 +755,7 @@ class MainWindow(QMainWindow):
         self.res_group = QGroupBox("整理結果", self)
         self.res_layout = QVBoxLayout(self.res_group)
         self.res_layout.setSpacing(10)
-        self.res_layout.setContentsMargins(16, 14, 16, 14)
+        self.res_layout.setContentsMargins(16, 0, 16, 14)
 
         # 提示文字元件（保留相容性）
         self.lbl_res_placeholder = QLabel("完成整理後，這裡會顯示檔案統計與完整性校驗報告。", self)
@@ -812,7 +822,7 @@ class MainWindow(QMainWindow):
         # 底部留白彈性伸縮，避免視窗拉高時卡片被強行撐大
         main_layout.addStretch(1)
 
-        outer_layout.addWidget(content_container)
+        outer_layout.addWidget(content_container, 100)
         outer_layout.addStretch(1)
 
     def _update_stepper(self, stage: int, error_stage: int = 0) -> None:
@@ -920,8 +930,10 @@ class MainWindow(QMainWindow):
         if count == 0:
             self.lbl_src_count.setText("尚未選取 ZIP")
             self.btn_remove.setEnabled(False)
+            self.btn_remove.hide()
             if hasattr(self, "btn_add_more"):
                 self.btn_add_more.setEnabled(False)
+                self.btn_add_more.hide()
             if hasattr(self, "list_stack"):
                 self.list_stack.setCurrentIndex(0)
             if hasattr(self, "lbl_empty_hint"):
@@ -936,8 +948,10 @@ class MainWindow(QMainWindow):
             else:
                 self.lbl_src_count.setText(f"已選取 {count} 個 ZIP（共 {size_str}）")
             self.btn_remove.setEnabled(True)
+            self.btn_remove.show()
             if hasattr(self, "btn_add_more"):
                 self.btn_add_more.setEnabled(True)
+                self.btn_add_more.show()
             if hasattr(self, "list_stack"):
                 self.list_stack.setCurrentIndex(1)
             if hasattr(self, "src_list"):
@@ -1020,6 +1034,17 @@ class MainWindow(QMainWindow):
             self.btn_start.setToolTip("輸出磁碟可用空間不足。")
         else:
             self.btn_start.setToolTip("開始整理照片與影片")
+
+        missing = [name for name, ok in (("加入 Takeout ZIP", has_sources), ("選擇輸出目錄", has_output)) if not ok]
+        if is_running or can_start:
+            self.lbl_start_hint.setText("")
+            self.lbl_start_hint.hide()
+        elif missing:
+            self.lbl_start_hint.setText("還需要：" + "、".join(missing))
+            self.lbl_start_hint.show()
+        else:
+            self.lbl_start_hint.setText("輸出磁碟可用空間不足，請換一個輸出位置。")
+            self.lbl_start_hint.show()
 
         self.btn_add_zip.setEnabled(not is_running)
         self.btn_add_more.setEnabled(len(self.sources) > 0 and not is_running)
@@ -1193,7 +1218,7 @@ class MainWindow(QMainWindow):
 
     def dragLeaveEvent(self, event: Any) -> None:
         if hasattr(self, "lbl_empty_hint") and self.lbl_empty_hint.isVisible():
-            self.lbl_empty_hint.setText("📦  將 Google Takeout ZIP 拖曳至此\n\n或點擊「選擇 ZIP」加入檔案（支援多卷分卷自動合併）")
+            self.lbl_empty_hint.setText(EMPTY_HINT_TEXT)
             self.lbl_empty_hint.setStyleSheet("""
                 QLabel {
                     color: #475569;
@@ -1213,7 +1238,7 @@ class MainWindow(QMainWindow):
 
     def dropEvent(self, event: QDropEvent) -> None:
         if hasattr(self, "lbl_empty_hint"):
-            self.lbl_empty_hint.setText("📦  將 Google Takeout ZIP 拖曳至此\n\n或點擊「選擇 ZIP」加入檔案（支援多卷分卷自動合併）")
+            self.lbl_empty_hint.setText(EMPTY_HINT_TEXT)
             self.lbl_empty_hint.setStyleSheet("""
                 QLabel {
                     color: #475569;
