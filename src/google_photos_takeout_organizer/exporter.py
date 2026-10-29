@@ -13,6 +13,17 @@ def _matches_expected(path: Path, size: int, digest: str) -> bool:
     return path.is_file() and path.stat().st_size == size and sha256(path) == digest
 
 
+def _copy_atomic(source: Path, destination: Path) -> None:
+    """先寫暫存檔再改名，中斷或磁碟滿時不會在最終檔名留下殘缺檔。"""
+    partial = destination.with_name(f".{destination.name}.gpto-part")
+    try:
+        shutil.copyfile(source, partial)
+        partial.replace(destination)
+    except BaseException:
+        partial.unlink(missing_ok=True)
+        raise
+
+
 def export(
     manifest_path: Path,
     output: Path,
@@ -35,7 +46,7 @@ def export(
                 raise SafetyConflictError(f"既有輸出檔案與預期內容不同：{destination}")
             else:
                 destination.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copyfile(record.source_path, destination)
+                _copy_atomic(Path(record.source_path), destination)
                 record.export_status = "COPIED"
             
             # Preserve matched Sidecar JSON alongside the media file
@@ -53,7 +64,7 @@ def export(
                     if dest_json.exists() and not _matches_expected(dest_json, src_json.stat().st_size, sha256(src_json)):
                         raise SafetyConflictError(f"既有中繼資料與預期內容不同：{dest_json}")
                     if not dest_json.exists():
-                        shutil.copyfile(src_json, dest_json)
+                        _copy_atomic(src_json, dest_json)
             if cancel_requested and cancel_requested():
                 manifest["export_state"] = "CANCELLED"
                 data.update(record.to_dict())

@@ -178,7 +178,8 @@ def test_filesystem_date_fallback_zero_unknown():
     assert Code.NO_DATE not in record.warnings
 
     plan([record])
-    assert record.planned_output_path == "Photos_Archive/2020/03/unknown_img.png"
+    assert "LOW_CONFIDENCE_DATE" in record.warnings
+    assert record.planned_output_path == "Review/Low-Confidence-Date/unknown_img.png"
 
 
 def test_zip_bomb_protection(tmp_path):

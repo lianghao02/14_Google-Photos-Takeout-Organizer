@@ -1,5 +1,11 @@
 # Changelog
 
+## 未發布
+
+- 修正匯出中途失敗（磁碟滿、程式被結束）後續作被誤判為安全衝突：媒體與 sidecar 改為先寫 `.gpto-part` 暫存檔再改名，失敗時清除暫存檔。
+- 日期只來自檔案修改時間或 Google 上傳時間（`creationTime`）的檔案，改放 `Review/Low-Confidence-Date`，不再混入 `Photos_Archive`；與「日期不明確交人工確認」原則一致。
+- 移除未使用的 `matcher._candidates()`、過時的 PyInstaller 打包腳本、已完成的實作計畫與過期的工作狀態文件。
+
 ## 🛠️ v1.3.1 (2026-10-22)
 
 - 修正不同 ZIP／資料夾的同名媒體誤配，避免無關照片與影片綁成同一組。

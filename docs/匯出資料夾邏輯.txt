@@ -1,15 +1,18 @@
 輸出資料夾/
 ├── Photos_Archive/             ← 【主照片庫】（最核心資料）
-│   └── YYYY/MM/                ← 依西元年份與月份分類
+│   └── YYYY/MM/                ← 依西元年份與月份分類（只有年份者放 YYYY/Unknown-Month/）
 │       ├── photo.jpg           ← 原始照片／影片（未經任何壓縮轉碼）
 │       └── photo.jpg.json      ← 對應的中繼資料（GPS、拍攝資訊、說明）
 │
 ├── Duplicates/                 ← 【重複檔案副本】
+│   ├── Duplicates-Unknown-Date/ ← 重複檔且無日期者
 │   └── YYYY/MM/photo__dup001.jpg  ← 與主庫內容 100% 相同的重複檔案（完整保留，供核對）
 │
 ├── Review/                     ← 【需人工確認項目】
 │   ├── Date-Conflict/          ← EXIF 與 JSON 日期差異過大者
-│   └── Ambiguous-Sidecar/      ← 同檔名有多個中繼資料候選者
+│   ├── Ambiguous-Sidecar/      ← 同檔名有多個中繼資料候選者
+│   ├── Invalid-JSON/           ← 中繼資料 JSON 格式損毀者
+│   └── Low-Confidence-Date/    ← 日期僅來自檔案修改時間或 Google 上傳時間，非拍攝時間
 │
 ├── Unknown-Date/               ← 【未辨識日期項目】（無任何時間線索者）
 │

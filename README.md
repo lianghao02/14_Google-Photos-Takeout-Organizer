@@ -19,7 +19,7 @@ Safe, local, copy-only organization for Google Photos / Google Takeout ZIPs and 
 - **Copy-Only Safety**: Never modifies, moves, deletes, or overwrites original Takeout archives or folders. Original inputs remain 100% read-only.
 - **Live Photo & RAW Pair Binding**: Automatically pairs iPhone Live Photos (`.HEIC` + `.MOV`) and DSLR RAW+JPEG (`.ARW` + `.JPG`). Video pairs inherit timestamps, organize into matching year/month folders, and synchronize filenames during collisions to preserve Live Photo playback.
 - **Global Phase-by-Phase Sidecar Matching**: Strict multi-tier matching (Same-Folder Exact ➜ Same Relative Path Cross-Archive ➜ Root Cross-Archive ➜ Stem Fallback) prevents low-priority candidates from stealing sidecars across split ZIPs.
-- **日期判斷與低信心保底**: Resolves timestamps in order: `EXIF` ➜ `Google JSON taken time` ➜ `JSON creationTime` ➜ `Filename` ➜ `Folder` ➜ `Filesystem mtime fallback`, ZIP 解壓先還原封存內修改時間；mtime 僅為低信心保底，不等於拍攝時間。無效時間保留 `Unknown-Date`。
+- **日期判斷與低信心保底**: Resolves timestamps in order: `EXIF` ➜ `Google JSON taken time` ➜ `JSON creationTime` ➜ `Filename` ➜ `Folder` ➜ `Filesystem mtime fallback`, ZIP 解壓先還原封存內修改時間；只靠 `creationTime`（上傳時間）或 mtime 的檔案不等於拍攝時間，會放進 `Review/Low-Confidence-Date` 交人工確認；無效時間保留 `Unknown-Date`。
 - **ZIP Bomb Defense & Legacy Encoding Fix**: Built-in 1000:1 compression ratio limit and symlink filtering prevent archive attacks; automatically recovers legacy CP437/Big5 Chinese filenames when ZIP UTF-8 flags are absent.
 - **Interactive HTML5 Report**: Modern Slate/Blue responsive dashboard featuring instant search, 7 categorical filters (Live Photo pairs, duplicates, review items), KPI statistics, and Chinese warning badges.
 - **Deduplication & Cryptographic Verification**: Groups exact duplicates via SHA-256 and isolates replicas; verifies byte size and SHA-256 integrity after export.
@@ -129,10 +129,6 @@ Copy-only safety guarantee: original inputs are never modified, deleted, moved, 
 ### 問題回報
 
 請提供使用版本／啟動方式、作業系統與相關環境、重現步驟、預期及實際結果，以及去識別的錯誤訊息或最小樣本。先保留現場與來源資料；不要附真實案件、完整帳號、密碼、Token 或 API Key。版本修正以對應原始碼與發行包為準。
-
-## 2026-10-16 修正狀態
-
-v1.3.1 修補版包含跨 ZIP 同名檔案誤配、成對名稱衝突與 ZIP 時間保底修正。既有 v1.3.0 下載包不包含這些修正。升級後請從來源 ZIP 使用新的工作目錄重新分析；舊 manifest 與解壓快取不會自動更正。發布方式維持 RUN.bat＋Python 3.13+，首次安裝相依套件需要網路，並非獨立 EXE。
 
 
 ### Windows 首次安裝路徑限制

@@ -35,6 +35,8 @@ WARNING_LABELS: dict[str, str] = {
     "CORRUPT_MEDIA": "媒體檔案損壞",
     "UNSUPPORTED_FORMAT": "非支援媒體格式",
     "NO_DATE": "無法判定日期",
+    "LOW_CONFIDENCE_DATE": "日期僅為保底（非拍攝時間）",
+    "UPLOAD_DATE_ONLY": "僅有上傳時間",
     "UNKNOWN_DATE": "無法判定日期",
     "ZIP_PATH_TRAVERSAL": "不安全路徑已攔截",
     "ZIP_BOMB": "疑似壓縮炸彈已略過",

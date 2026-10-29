@@ -57,4 +57,7 @@ def resolve(record: MediaRecord) -> None:
     record.date_precision = "DATETIME" if value and "T" in value else "DATE" if value and len(value) >= 10 else "YEAR_MONTH" if value and len(value) == 7 else "YEAR" if value and len(value) == 4 else "UNKNOWN"
     if not value:
         record.warnings.append(str(Code.NO_DATE))
+    elif source == "FILESYSTEM" or (source == "GOOGLE_JSON" and "UPLOAD_DATE_ONLY" in record.warnings):
+        # 只有檔案修改時間或上傳時間可用：不是拍攝日期，交人工確認。
+        record.warnings.append("LOW_CONFIDENCE_DATE")
 

@@ -101,13 +101,15 @@ def plan(records: list[MediaRecord]) -> None:
         if record.id in child_to_primary:
             continue
 
-        if record.is_primary and any(code in record.warnings for code in ("DATE_CONFLICT", "AMBIGUOUS_SIDECAR", "INVALID_JSON")):
+        if record.is_primary and any(code in record.warnings for code in ("DATE_CONFLICT", "AMBIGUOUS_SIDECAR", "INVALID_JSON", "LOW_CONFIDENCE_DATE")):
             if "DATE_CONFLICT" in record.warnings:
                 folder = "Review/Date-Conflict"
             elif "AMBIGUOUS_SIDECAR" in record.warnings:
                 folder = "Review/Ambiguous-Sidecar"
             elif "INVALID_JSON" in record.warnings:
                 folder = "Review/Invalid-JSON"
+            elif "LOW_CONFIDENCE_DATE" in record.warnings:
+                folder = "Review/Low-Confidence-Date"
             else:
                 folder = "Review"
         else:

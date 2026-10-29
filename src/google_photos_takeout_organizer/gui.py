@@ -242,6 +242,8 @@ WARNING_TRANSLATIONS: dict[str, str] = {
     "CORRUPT_MEDIA": "檔案可能損壞或格式暫不支援",
     "UNSUPPORTED_FORMAT": "檔案可能損壞或格式暫不支援",
     "NO_DATE": "無法判定拍攝日期",
+    "LOW_CONFIDENCE_DATE": "日期只是保底（檔案修改或上傳時間），需要人工確認",
+    "UPLOAD_DATE_ONLY": "中繼資料只有上傳時間，沒有拍攝時間",
     "UNKNOWN_DATE": "無法判定拍攝日期",
     "ZIP_PATH_TRAVERSAL": "壓縮檔包含不安全路徑",
     "ZIP_BOMB": "壓縮檔異常膨脹（疑似壓縮炸彈），已安全略過",

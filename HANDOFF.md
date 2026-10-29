@@ -12,6 +12,9 @@
 
 P26-10-22：使用者已授權提交與發布。此提交包含本輪已驗證的修正及 v1.3.1 版本更新。Tag、Release、部署與最終同步結果統一見控制中心 `docs/audit-release-20261022.md`，不得依提交前記錄重做修復。
 
+## 後續修改（未提交）
+匯出改 `.gpto-part` 暫存再改名；僅有上傳時間或 mtime 的日期改放 `Review/Low-Confidence-Date`；移除 `matcher._candidates`、`build_windows.ps1`、`IMPLEMENTATION_PLAN.md`、`docs/WORK_STATUS.md`。pytest 36/36。未用真實 Takeout 驗證；未提交、未改版本號。
+
 ## 本輪目標
 準備包含 e21f691 修補的 v1.3.1 原始碼候選版。
 

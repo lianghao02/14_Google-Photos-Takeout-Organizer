@@ -51,6 +51,11 @@ def image_metadata(path: Path) -> tuple[int | None, int | None, str | None, str]
     except Exception:
         return None, None, None, "CORRUPT_OR_UNSUPPORTED"
 
+def json_date_is_upload(data: dict) -> bool:
+    """JSON 沒有拍攝時間、只能用上傳時間 (creationTime) 時為 True。"""
+    value = data.get("photoTakenTime")
+    return not (isinstance(value, dict) and value.get("timestamp"))
+
 def json_date(data: dict) -> str | None:
     for key in ("photoTakenTime", "creationTime"):
         value = data.get(key)
