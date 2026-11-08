@@ -4,11 +4,14 @@
 
 ---
 
-## 核心筆記本清單
+## 🎮 總導航入口（專屬遊戲風格網頁）
 
-### 0. `00_雲端冒險大廳.ipynb`（🎮 冒險者公會總導航）
-- **功能**：Q 版 RPG 遊戲風格的視覺化總導航大廳！呈現「冒險者 HUD」與「任務公告欄」，一鍵直達各個專屬副本，隨開即走、零運算消耗。
-- **時機**：日常唯一書籤首頁。
+👉 **[梁巡官的 AI 雲端冒險大廳 (Web 儀表板)](https://lianghao02.github.io/Project-Hub/colab.html)**  
+*(建議加入瀏覽器唯一書籤，隨時一鍵進入各個工具副本)*
+
+---
+
+## 核心筆記本清單
 
 ### 1. `01_相簿整理去重.ipynb`（相簿定期增量整理與去重）
 - **功能**：自動掃描 Google Takeout 分割壓縮包，執行全域 Sidecar 配對、Live Photo 綁定、SHA-256 增量去重，按年月歸檔進 `Organized_Photos/`，具備**即時動態百分比進度條**，驗證無誤後自動清理 ZIP 釋放 2TB 空間。
@@ -32,6 +35,4 @@
    - 傳送方式選擇「新增至雲端硬碟」，頻率設定「每 2 個月匯出一次，為期 1 年」。
    - 封存檔大小建議選 50 GB。
 2. **在 Colab 開啟**：
-   - 開啟 [Google Colab](https://colab.research.google.com/)。
-   - 切換至「GitHub」分頁，搜尋 `lianghao02/14_Google-Photos-Takeout-Organizer`。
-   - 點開 **`00_雲端冒險大廳.ipynb`**，即可進入您的 Q 版專屬軍火庫！
+   - 直接點開 **[AI 雲端冒險大廳網頁](https://lianghao02.github.io/Project-Hub/colab.html)**，點擊任務卡片上的「出征按鈕」即可自動在新分頁開啟對應筆記本！
