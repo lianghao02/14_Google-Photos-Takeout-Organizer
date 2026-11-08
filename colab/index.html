@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🎮 梁巡官的 AI 雲端冒險大廳 | Colab Quest Hub</title>
+  <style>
+    :root {
+      --bg-dark: #0f172a;
+      --card-bg: rgba(30, 41, 59, 0.95);
+      --card-border: #38bdf8;
+      --accent-blue: #0284c7;
+      --accent-purple: #7c3aed;
+      --text-main: #f8fafc;
+      --text-sub: #94a3b8;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: radial-gradient(circle at 50% 20%, #1e293b 0%, #0b0f19 100%);
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 30px 16px;
+    }
+
+    .container { max-width: 900px; width: 100%; }
+
+    .hud-header {
+      background: linear-gradient(135deg, rgba(30, 41, 59, 0.9) 0%, rgba(15, 23, 42, 0.9) 100%);
+      border: 3px solid var(--card-border);
+      border-radius: 20px;
+      padding: 24px;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.6), 0 0 15px rgba(56, 189, 248, 0.2);
+      margin-bottom: 24px;
+    }
+
+    .hud-top-bar {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 2px dashed #475569;
+      padding-bottom: 16px;
+      gap: 12px;
+    }
+
+    .guild-tag { font-size: 13px; color: #38bdf8; letter-spacing: 1.5px; font-weight: bold; }
+    .player-title { font-size: 28px; font-weight: 900; color: #38bdf8; text-shadow: 0 0 12px rgba(56, 189, 248, 0.4); margin: 4px 0; }
+    .player-badge { display: inline-block; background: #0369a1; color: #e0f2fe; font-size: 12px; padding: 4px 10px; border-radius: 20px; font-weight: bold; border: 1px solid #38bdf8; }
+    .stats-box { text-align: right; display: flex; flex-direction: column; gap: 6px; }
+    .stat-item { font-size: 13px; color: #cbd5e1; }
+    .stat-val-green { color: #4ade80; font-weight: bold; text-shadow: 0 0 8px rgba(74, 222, 128, 0.3); }
+    .stat-val-blue { color: #38bdf8; font-weight: bold; }
+    .hud-notice { margin-top: 14px; font-size: 14px; color: #94a3b8; text-align: center; }
+
+    .quest-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+      gap: 20px;
+      margin-bottom: 30px;
+    }
+
+    .quest-card {
+      background: var(--card-bg);
+      border-radius: 18px;
+      padding: 22px;
+      position: relative;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .quest-card:hover { transform: translateY(-4px); }
+    .card-blue { border: 2px solid #0284c7; box-shadow: 0 6px 20px rgba(2, 132, 199, 0.2); }
+    .card-purple { border: 2px solid #7c3aed; box-shadow: 0 6px 20px rgba(124, 58, 237, 0.2); }
+    .card-locked { background: rgba(15, 23, 42, 0.7); border: 2px dashed #475569; opacity: 0.8; }
+
+    .quest-meta { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    .quest-badge { font-size: 11px; font-weight: bold; padding: 3px 8px; border-radius: 6px; color: white; }
+    .badge-blue { background: #0284c7; }
+    .badge-purple { background: #7c3aed; }
+    .badge-gray { background: #334155; color: #94a3b8; }
+
+    .quest-cost { font-size: 12px; font-weight: bold; }
+    .cost-blue { color: #38bdf8; }
+    .cost-purple { color: #c084fc; }
+    .cost-gray { color: #64748b; }
+
+    .quest-title { font-size: 20px; font-weight: bold; color: #f1f5f9; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+    .quest-desc { font-size: 14px; color: #cbd5e1; line-height: 1.6; margin-bottom: 20px; flex-grow: 1; }
+    .quest-actions { text-align: right; }
+
+    .btn-quest {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      text-decoration: none;
+      padding: 10px 20px;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: bold;
+      color: white;
+      transition: all 0.2s ease;
+      cursor: pointer;
+    }
+
+    .btn-blue {
+      background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+      border: 1px solid #38bdf8;
+      box-shadow: 0 4px 10px rgba(2, 132, 199, 0.4);
+    }
+    .btn-blue:hover { box-shadow: 0 6px 15px rgba(2, 132, 199, 0.6); transform: scale(1.02); }
+
+    .btn-purple {
+      background: linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%);
+      border: 1px solid #c084fc;
+      box-shadow: 0 4px 10px rgba(124, 58, 237, 0.4);
+    }
+    .btn-purple:hover { box-shadow: 0 6px 15px rgba(124, 58, 237, 0.6); transform: scale(1.02); }
+
+    .btn-locked {
+      background: #1e293b;
+      color: #64748b;
+      border: 1px solid #334155;
+      padding: 8px 16px;
+      border-radius: 10px;
+      font-size: 13px;
+      cursor: not-allowed;
+    }
+
+    footer {
+      text-align: center;
+      font-size: 13px;
+      color: #64748b;
+      border-top: 1px solid #334155;
+      padding-top: 20px;
+      margin-top: auto;
+    }
+
+    @media (max-width: 600px) {
+      .quest-grid { grid-template-columns: 1fr; }
+      .hud-top-bar { flex-direction: column; align-items: flex-start; }
+      .stats-box { text-align: left; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+
+    <header class="hud-header">
+      <div class="hud-top-bar">
+        <div>
+          <div class="guild-tag">⚔️ 雲端冒險者工會 (COLAB QUEST HUB)</div>
+          <h1 class="player-title">🎮 梁巡官的 AI 雲端冒險大廳</h1>
+          <div class="player-badge">👑 稱號：Lv.99 科技神捕暨萬能召喚師</div>
+        </div>
+        <div class="stats-box">
+          <div class="stat-item">⚡ 靈力儲備：<span class="stat-val-green">Colab Pro (GPU READY)</span></div>
+          <div class="stat-item">🎒 空間背包：<span class="stat-val-blue">Google One 2,048 GB</span></div>
+        </div>
+      </div>
+      <div class="hud-notice">
+        📜 歡迎來到雲端指揮所！點擊任務卡片上的「出征按鈕」，即可一鍵召喚雲端魔法虛擬機執行專屬任務。
+      </div>
+    </header>
+
+    <main class="quest-grid">
+
+      <!-- 任務卡片 01 -->
+      <article class="quest-card card-blue">
+        <div>
+          <div class="quest-meta">
+            <span class="quest-badge badge-blue">QUEST 01 • 每 2 個月日常</span>
+            <span class="quest-cost cost-blue">耗能：0 靈力 (純 CPU)</span>
+          </div>
+          <h2 class="quest-title">🏰 Takeout 封存古堡：相簿淨化大作戰</h2>
+          <p class="quest-desc">
+            討伐 139 卷暗黑封存壓縮檔！發動全域 Sidecar 咒文校正歷史時間，消滅所有重複影魔，全自動歸檔並釋放 2TB 淨土！
+          </p>
+        </div>
+        <div class="quest-actions">
+          <a class="btn-quest btn-blue" href="https://colab.research.google.com/github/lianghao02/14_Google-Photos-Takeout-Organizer/blob/main/colab/01_相簿整理去重.ipynb" target="_blank" rel="noopener">
+            ⚔️ 領取任務 • 出征整理 ➜
+          </a>
+        </div>
+      </article>
+
+      <!-- 任務卡片 02 -->
+      <article class="quest-card card-purple">
+        <div>
+          <div class="quest-meta">
+            <span class="quest-badge badge-purple">QUEST 02 • 常駐神殿</span>
+            <span class="quest-cost cost-purple">耗能：GPU 魔法加速</span>
+          </div>
+          <h2 class="quest-title">🔮 幻影神殿：AI 人臉聚類與千里搜圖</h2>
+          <p class="quest-desc">
+            召喚 InsightFace 神祇自動識別家族同伴！輸入繁中密咒 0.05 秒神識搜圖，啟動 Gradio 水晶球並煉化單檔離線相簿！
+          </p>
+        </div>
+        <div class="quest-actions">
+          <a class="btn-quest btn-purple" href="https://colab.research.google.com/github/lianghao02/14_Google-Photos-Takeout-Organizer/blob/main/colab/02_AI人臉與搜圖工作台.ipynb" target="_blank" rel="noopener">
+            🪄 進入神殿 • 開始探勘 ➜
+          </a>
+        </div>
+      </article>
+
+      <!-- 任務卡片 03 (預備副本) -->
+      <article class="quest-card card-locked">
+        <div>
+          <div class="quest-meta">
+            <span class="quest-badge badge-gray">QUEST 03 • 封印之塔</span>
+            <span class="quest-cost cost-gray">即將解鎖</span>
+          </div>
+          <h2 class="quest-title" style="color: #94a3b8;">🎙️ 天籟之閣：Whisper 疾風逐字卷</h2>
+          <p class="quest-desc" style="color: #64748b;">
+            捕捉萬物之聲！會議錄音與長篇訪談丟入熔爐，2 分鐘內煉成對齊時間軸之繁中符文與精要筆記。
+          </p>
+        </div>
+        <div class="quest-actions">
+          <span class="btn-quest btn-locked">🔒 尚未解鎖</span>
+        </div>
+      </article>
+
+      <!-- 任務卡片 04 (預備副本) -->
+      <article class="quest-card card-locked">
+        <div>
+          <div class="quest-meta">
+            <span class="quest-badge badge-gray">QUEST 04 • 鏈上深淵</span>
+            <span class="quest-cost cost-gray">即將解鎖</span>
+          </div>
+          <h2 class="quest-title" style="color: #94a3b8;">⛓️ 照妖晶鏡：多鏈金流圖譜獵手</h2>
+          <p class="quest-desc" style="color: #64748b;">
+            撥開 Polymarket 與多鏈迷霧！自動追查多層跳板洗錢路徑，以高維圖譜法眼洞悉金流流向。
+          </p>
+        </div>
+        <div class="quest-actions">
+          <span class="btn-quest btn-locked">🔒 尚未解鎖</span>
+        </div>
+      </article>
+
+    </main>
+
+    <footer>
+      ⚔️ 本冒險大廳受 LiangHao 全域開發憲法保護 • 100% 於 Google 私有虛擬機中完成
+    </footer>
+
+  </div>
+
+</body>
+</html>
