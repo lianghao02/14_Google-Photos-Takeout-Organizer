@@ -1,33 +1,33 @@
-# Google Photos Takeout - Colab 雲端自動化增量整理
+# Google Photos Takeout - Colab 雲端超能相簿工坊套件
 
-本目錄提供在 **Google Colab** 雲端環境中自動整理 Google Takeout 相簿的官方筆記本範本，專為具備 **Google One 2TB** 空間之使用者量身打造。
-
----
-
-## 核心設計理念
-
-1. **雲端內部直通**：直接掛載 Google Drive，相片資料完全在 Google 內部伺服器串流傳輸，本機電腦 0 下載、0 上傳。
-2. **繼承成熟演算法**：完全引用本專案成熟之全域 Sidecar 配對、Live Photo 成對綁定、五層日期保底與 SHA-256 完整性校驗。
-3. **智慧增量去重**：遇到內容重複之照片自動略過，不重複消耗 2TB 空間。
-4. **安全防禦清理**：只有在輸出驗證 100% 通過（`status: OK`）的前提下，才會安全刪除原始 Takeout ZIP 壓縮檔與解壓暫存區。
+本目錄提供專為 **Google One 2TB + Google Colab Pro** 雲端生態量身打造的官方工具組。所有重度運算與相片讀寫 **100% 於 Google 雲端伺服器內部執行**，不消耗本機電腦硬碟與網路頻寬。
 
 ---
 
-## 檔案說明
+## 兩大核心筆記本
 
-- **`Google_Photos_Takeout_Organizer.ipynb`**：Colab 互動式執行筆記本。
+### 1. `Google_Photos_Takeout_Organizer.ipynb`（相簿定期增量整理與去重）
+- **功能**：自動掃描 Google Takeout 分割壓縮包，執行全域 Sidecar 配對、Live Photo 綁定、SHA-256 增量去重，按年月歸檔進 `Organized_Photos/`，驗證無誤後自動清理 ZIP 釋放 2TB 空間。
+- **時機**：每 2 個月收到 Google Takeout 匯出完成通知時執行一次。
+
+### 2. `Google_Photos_AI_Studio.ipynb`（私有 AI 智慧相簿超能工坊）
+- **功能**：
+  1. **👤 人臉辨識與自動人物分群**：採用 InsightFace (buffalo_l) 抽取 512 維人臉向量 + DBSCAN 聚類，自動生成家庭人物相簿。
+  2. **🔍 繁體中文自然語言搜圖**：Multilingual CLIP 多模態語義檢索，打字輸入「看海的背影」、「吹蠟燭」0.05 秒精準出圖。
+  3. **🎨 現代 HTML5 雙軌操作面板**：
+     - **線上互動**：內建 Gradio 現代 HTML5 介面（含相片瀑布流，支援手機瀏覽器連線）。
+     - **離線相簿**：一鍵匯出單檔純靜態 `Family_Album.html`，存於 Drive 隨時雙擊秒開！
+- **時機**：相簿整理完畢後，隨時點開享受 AI 搜圖與人物分類。
 
 ---
 
 ## 使用教學
 
-1. **Google Takeout 設定**：
+1. **Google Takeout 自動排程**：
    - 至 [Google Takeout](https://takeout.google.com/) 僅勾選「Google 相簿」。
    - 傳送方式選擇「新增至雲端硬碟」，頻率設定「每 2 個月匯出一次，為期 1 年」。
    - 封存檔大小建議選 50 GB。
-2. **上傳至 Colab**：
+2. **在 Colab 開啟**：
    - 開啟 [Google Colab](https://colab.research.google.com/)。
-   - 選擇「上傳筆記本」，將 `Google_Photos_Takeout_Organizer.ipynb` 上傳（或存於 Google Drive 後開啟）。
-3. **執行整理**：
-   - 收到 Google 打包完成通知後，在 Colab 點擊「執行階段」➜「全部執行」。
-   - 程式將自動建立目錄、分析配對、增量去重歸檔，並在校驗成功後自動釋放 ZIP 空間。
+   - 切換至「GitHub」分頁，搜尋 `lianghao02/14_Google-Photos-Takeout-Organizer`。
+   - 依需求點選開啟上述任一筆記本，即可在雲端一鍵執行！
