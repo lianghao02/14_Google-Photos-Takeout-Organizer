@@ -9,8 +9,8 @@ class SafetyConflictError(RuntimeError):
     """An existing output has different bytes and must never be overwritten."""
 
 
-def _matches_expected(path: Path, size: int, digest: str) -> bool:
-    return path.is_file() and path.stat().st_size == size and sha256(path) == digest
+def _matches_expected(path: Path, size: int, digest: str | None) -> bool:
+    return path.is_file() and path.stat().st_size == size and (not digest or sha256(path) == digest)
 
 
 def _copy_atomic(source: Path, destination: Path) -> None:

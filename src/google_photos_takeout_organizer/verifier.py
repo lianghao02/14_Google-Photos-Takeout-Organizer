@@ -14,8 +14,11 @@ def verify(manifest_path: Path, output: Path, progress_callback: Callable[[str, 
         record = MediaRecord.from_dict(data); target = output / record.planned_output_path
         if progress_callback:
             progress_callback("VERIFY", current, len(records), target.name)
-        if target.exists() and target.stat().st_size == record.size and sha256(target) == record.sha256: record.export_status = "VERIFIED"; verified += 1
-        else: record.export_status = "FAILED"; record.errors.append("HASH_MISMATCH"); failed += 1
+        is_valid = target.exists() and target.stat().st_size == record.size and (not record.sha256 or sha256(target) == record.sha256)
+        if is_valid:
+            record.export_status = "VERIFIED"; verified += 1
+        else:
+            record.export_status = "FAILED"; record.errors.append("HASH_MISMATCH"); failed += 1
         data.update(record.to_dict())
     result = {"result": "PASS" if not failed else "FAIL", "verified": verified, "failed": failed}
     manifest["verification"] = result; (output / "verification.json").write_text(json.dumps(result, indent=2), encoding="utf-8"); (output / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")

@@ -1,5 +1,9 @@
 from __future__ import annotations
-import json, logging, uuid
+import json
+import logging
+import os
+import uuid
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Callable
 from . import __version__
@@ -13,17 +17,25 @@ from .planner import plan
 from .report import write_report
 
 log = logging.getLogger(__name__)
+
 def analyze(
     inputs: list[Path],
     work: Path,
     cancel_requested: Callable[[], bool] | None = None,
     progress_callback: Callable[[str, int, int, str], None] | None = None,
 ) -> dict:
-    work.mkdir(parents=True, exist_ok=True); extracted = work / "extracted"; records = []; jsons = []; archives = []; warnings = []
+    work.mkdir(parents=True, exist_ok=True)
+    extracted = work / "extracted"
+    records = []
+    jsons = []
+    archives = []
+    warnings = []
+
     for index, source in enumerate(inputs, 1):
         if cancel_requested and cancel_requested():
             raise InterruptedError("CANCELLED")
-        archive_id = f"archive_{index:03d}"; root = source
+        archive_id = f"archive_{index:03d}"
+        root = source
         if source.suffix.lower() == ".zip":
             root = extracted / archive_id
             ext_cb = (
@@ -33,19 +45,38 @@ def analyze(
             )
             warnings.extend(extract_zip(source, root, cancel_requested=cancel_requested, progress_callback=ext_cb))
         archives.append({"archive_id": archive_id, "source": str(source), "root": str(root)})
-        found, sidecars = scan(root, archive_id); records.extend(found); jsons.extend(sidecars)
+        found, sidecars = scan(root, archive_id)
+        records.extend(found)
+        jsons.extend(sidecars)
+
     roots = {a["archive_id"]: Path(a["root"]) for a in archives}
-    _, match_warnings = match(records, jsons, roots); warnings.extend(match_warnings)
+    _, match_warnings = match(records, jsons, roots)
+    warnings.extend(match_warnings)
+
     total_recs = len(records)
-    for idx, record in enumerate(records, 1):
-        if cancel_requested and cancel_requested():
-            raise InterruptedError("CANCELLED")
-        if progress_callback:
-            progress_callback("ANALYZE", idx, total_recs, record.original_filename)
+    
+    # 多執行緒並行讀取 EXIF 與日期解析（大幅解決 Google Drive FUSE 網路單線程延遲）
+    def _analyze_single(record):
         if record.media_type == "photo":
             record.width, record.height, record.exif_date, record.exif_status = image_metadata(Path(record.source_path))
         resolve(record)
-    groups = group(records); plan(records)
+        return record
+
+    max_workers = min(16, (os.cpu_count() or 4) * 4)
+    completed_count = 0
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {executor.submit(_analyze_single, r): r for r in records}
+        for fut in as_completed(futures):
+            if cancel_requested and cancel_requested():
+                executor.shutdown(wait=False, cancel_futures=True)
+                raise InterruptedError("CANCELLED")
+            completed_count += 1
+            rec = fut.result()
+            if progress_callback:
+                progress_callback("ANALYZE", completed_count, total_recs, rec.original_filename)
+
+    groups = group(records)
+    plan(records)
     paired_groups_count = len({r.pair_group_id for r in records if r.pair_group_id})
     summary = {
         "total_media": len(records),

@@ -67,6 +67,9 @@ def extract_zip(
                     destination.mkdir(parents=True, exist_ok=True)
                     continue
 
+                if destination.is_file() and destination.stat().st_size == member.file_size:
+                    continue
+
                 destination.parent.mkdir(parents=True, exist_ok=True)
                 partial_destination = destination.with_name(f".{destination.name}.gpto-part")
                 try:

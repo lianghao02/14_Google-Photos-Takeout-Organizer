@@ -3,6 +3,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from PIL import Image
 
+# 允許讀取全景與超高解析度照片，防止 DecompressionBombWarning
+Image.MAX_IMAGE_PIXELS = None
+
 try:
     import pillow_heif
     pillow_heif.register_heif_opener()
