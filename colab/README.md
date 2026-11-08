@@ -4,13 +4,13 @@
 
 ---
 
-## 兩大核心筆記本
+## 兩大核心筆記本（依編號循序使用）
 
-### 1. `Google_Photos_Takeout_Organizer.ipynb`（相簿定期增量整理與去重）
-- **功能**：自動掃描 Google Takeout 分割壓縮包，執行全域 Sidecar 配對、Live Photo 綁定、SHA-256 增量去重，按年月歸檔進 `Organized_Photos/`，驗證無誤後自動清理 ZIP 釋放 2TB 空間。
+### 1. `01_相簿整理去重.ipynb`（相簿定期增量整理與去重）
+- **功能**：自動掃描 Google Takeout 分割壓縮包，執行全域 Sidecar 配對、Live Photo 綁定、SHA-256 增量去重，按年月歸檔進 `Organized_Photos/`，具備**即時動態百分比進度條**，驗證無誤後自動清理 ZIP 釋放 2TB 空間。
 - **時機**：每 2 個月收到 Google Takeout 匯出完成通知時執行一次。
 
-### 2. `Google_Photos_AI_Studio.ipynb`（私有 AI 智慧相簿超能工坊）
+### 2. `02_AI人臉與搜圖工作台.ipynb`（私有 AI 智慧相簿超能工坊）
 - **功能**：
   1. **👤 人臉辨識與自動人物分群**：採用 InsightFace (buffalo_l) 抽取 512 維人臉向量 + DBSCAN 聚類，自動生成家庭人物相簿。
   2. **🔍 繁體中文自然語言搜圖**：Multilingual CLIP 多模態語義檢索，打字輸入「看海的背影」、「吹蠟燭」0.05 秒精準出圖。
