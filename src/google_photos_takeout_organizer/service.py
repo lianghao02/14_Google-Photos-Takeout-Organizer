@@ -38,12 +38,17 @@ def analyze(
         root = source
         if source.suffix.lower() == ".zip":
             root = extracted / archive_id
-            ext_cb = (
-                (lambda cur, tot, name, s_name=source.name: progress_callback("ANALYZE_EXTRACT", cur, tot, f"[{s_name}] {name}"))
-                if progress_callback
-                else None
-            )
-            warnings.extend(extract_zip(source, root, cancel_requested=cancel_requested, progress_callback=ext_cb))
+            # 斷點續跑優化：若目錄已存在且非空，直接視為已解壓，完全不需再次連線開啟 ZIP
+            already_extracted = root.is_dir() and any(root.iterdir())
+            if not already_extracted:
+                ext_cb = (
+                    (lambda cur, tot, name, s_name=source.name: progress_callback("ANALYZE_EXTRACT", cur, tot, f"[{s_name}] {name}"))
+                    if progress_callback
+                    else None
+                )
+                warnings.extend(extract_zip(source, root, cancel_requested=cancel_requested, progress_callback=ext_cb))
+            elif progress_callback:
+                progress_callback("ANALYZE_EXTRACT", 1, 1, f"[{source.name}] (已解壓，秒速跳過)")
         archives.append({"archive_id": archive_id, "source": str(source), "root": str(root)})
         found, sidecars = scan(root, archive_id)
         records.extend(found)
