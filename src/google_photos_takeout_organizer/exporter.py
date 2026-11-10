@@ -22,8 +22,7 @@ def _copy_atomic(source: Path, destination: Path) -> None:
     for attempt in range(2):
         try:
             destination.parent.mkdir(parents=True, exist_ok=True)
-            with source.open("rb") as fsrc, partial.open("wb") as fdst:
-                shutil.copyfileobj(fsrc, fdst, length=8 * 1024 * 1024)
+            shutil.copyfile(source, partial)
             partial.replace(destination)
             return
         except BaseException as exc:
