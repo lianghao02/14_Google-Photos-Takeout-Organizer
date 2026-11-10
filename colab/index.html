@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>🎮 梁巡官的 AI 雲端冒險大廳 | Colab Quest Hub</title>
+  <title>🎮 AI 雲端工具箱 | Google Colab Hub</title>
   <style>
     :root {
       --bg-dark: #0f172a;
@@ -11,6 +11,7 @@
       --card-border: #38bdf8;
       --accent-blue: #0284c7;
       --accent-purple: #7c3aed;
+      --accent-amber: #d97706;
       --text-main: #f8fafc;
       --text-sub: #94a3b8;
     }
@@ -29,6 +30,40 @@
     }
 
     .container { max-width: 900px; width: 100%; }
+
+    .hub-nav-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .nav-back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: #38bdf8;
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 700;
+      padding: 6px 14px;
+      background: rgba(30, 41, 59, 0.8);
+      border: 1px solid #0284c7;
+      border-radius: 20px;
+      transition: all 0.2s ease;
+    }
+    .nav-back-link:hover {
+      background: #0284c7;
+      color: #ffffff;
+      transform: translateX(-2px);
+    }
+    .nav-status-pill {
+      font-size: 12px;
+      color: #94a3b8;
+      font-weight: 600;
+    }
 
     .hud-header {
       background: linear-gradient(135deg, rgba(30, 41, 59, 0.9) 0%, rgba(15, 23, 42, 0.9) 100%);
@@ -79,18 +114,18 @@
     .quest-card:hover { transform: translateY(-4px); }
     .card-blue { border: 2px solid #0284c7; box-shadow: 0 6px 20px rgba(2, 132, 199, 0.2); }
     .card-purple { border: 2px solid #7c3aed; box-shadow: 0 6px 20px rgba(124, 58, 237, 0.2); }
-    .card-locked { background: rgba(15, 23, 42, 0.7); border: 2px dashed #475569; opacity: 0.8; }
+    .card-amber { border: 2px solid #d97706; box-shadow: 0 6px 20px rgba(217, 119, 6, 0.25); }
 
     .quest-meta { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
     .quest-badge { font-size: 11px; font-weight: bold; padding: 3px 8px; border-radius: 6px; color: white; }
     .badge-blue { background: #0284c7; }
     .badge-purple { background: #7c3aed; }
-    .badge-gray { background: #334155; color: #94a3b8; }
+    .badge-amber { background: #d97706; }
 
     .quest-cost { font-size: 12px; font-weight: bold; }
     .cost-blue { color: #38bdf8; }
     .cost-purple { color: #c084fc; }
-    .cost-gray { color: #64748b; }
+    .cost-amber { color: #fbbf24; }
 
     .quest-title { font-size: 20px; font-weight: bold; color: #f1f5f9; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
     .quest-desc { font-size: 14px; color: #cbd5e1; line-height: 1.6; margin-bottom: 20px; flex-grow: 1; }
@@ -124,15 +159,12 @@
     }
     .btn-purple:hover { box-shadow: 0 6px 15px rgba(124, 58, 237, 0.6); transform: scale(1.02); }
 
-    .btn-locked {
-      background: #1e293b;
-      color: #64748b;
-      border: 1px solid #334155;
-      padding: 8px 16px;
-      border-radius: 10px;
-      font-size: 13px;
-      cursor: not-allowed;
+    .btn-amber {
+      background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
+      border: 1px solid #f59e0b;
+      box-shadow: 0 4px 10px rgba(217, 119, 6, 0.4);
     }
+    .btn-amber:hover { box-shadow: 0 6px 15px rgba(217, 119, 6, 0.6); transform: scale(1.02); }
 
     footer {
       text-align: center;
@@ -141,6 +173,11 @@
       border-top: 1px solid #334155;
       padding-top: 20px;
       margin-top: auto;
+    }
+
+    footer a {
+      color: #38bdf8;
+      text-decoration: none;
     }
 
     @media (max-width: 600px) {
@@ -154,103 +191,95 @@
 
   <div class="container">
 
+    <nav class="hub-nav-bar" aria-label="工具箱導航">
+      <a href="https://lianghao02.github.io/Project-Hub/" class="nav-back-link">
+        ⬅️ 返回 LiangHao 工具村作品首頁
+      </a>
+      <span class="nav-status-pill">
+        ☁️ Google Colab 雲端運算工作台
+      </span>
+    </nav>
+
     <header class="hud-header">
       <div class="hud-top-bar">
         <div>
-          <div class="guild-tag">⚔️ 雲端冒險者工會 (COLAB QUEST HUB)</div>
-          <h1 class="player-title">🎮 梁巡官的 AI 雲端冒險大廳</h1>
-          <div class="player-badge">👑 稱號：Lv.99 科技神捕暨萬能召喚師</div>
+          <div class="guild-tag">GOOGLE COLAB WORKSPACE</div>
+          <h1 class="player-title">🎮 AI 雲端工具箱</h1>
+          <div class="player-badge">雲端運算・免本機硬體負擔</div>
         </div>
         <div class="stats-box">
-          <div class="stat-item">⚡ 靈力儲備：<span class="stat-val-green">Colab Pro (GPU READY)</span></div>
-          <div class="stat-item">🎒 空間背包：<span class="stat-val-blue">Google One 2,048 GB</span></div>
+          <div class="stat-item">⚡ 執行環境：<span class="stat-val-green">Google Colab (支援 GPU)</span></div>
+          <div class="stat-item">💾 儲存連結：<span class="stat-val-blue">Google Drive / Google One</span></div>
         </div>
       </div>
       <div class="hud-notice">
-        📜 歡迎來到雲端指揮所！點擊任務卡片上的「出征按鈕」，即可一鍵召喚雲端魔法虛擬機執行專屬任務。
+        💡 專為高耗能 AI 與批次資料處理設計。點擊下方卡片即可直接開啟對應的 Google Colab 筆記本，免在本機安裝依賴套件。
       </div>
     </header>
 
     <main class="quest-grid">
 
-      <!-- 任務卡片 01 -->
+      <!-- 工具卡片 01 -->
       <article class="quest-card card-blue">
         <div>
           <div class="quest-meta">
-            <span class="quest-badge badge-blue">QUEST 01 • 每 2 個月日常</span>
-            <span class="quest-cost cost-blue">耗能：0 靈力 (純 CPU)</span>
+            <span class="quest-badge badge-blue">TOOL 01 • 定期維護</span>
+            <span class="quest-cost cost-blue">運算：純 CPU (免 GPU 配額)</span>
           </div>
-          <h2 class="quest-title">🏰 Takeout 封存古堡：相簿淨化大作戰</h2>
+          <h2 class="quest-title">📁 Google 相簿 Takeout 整理去重工具</h2>
           <p class="quest-desc">
-            自動鎖定最新一波封存壓縮檔！發動全域雜湊 Sidecar 咒文秒級校正歷史時間，消滅重複影魔，全自動歸檔並釋放 2TB 淨土！
+            專為處理 Google 匯出的大量 zip 壓縮檔設計。採用本地 SSD 分波解壓防斷線，自動比對跨分卷 JSON 校準拍攝時間、安全隔離重複檔案，並依拍攝年月無損歸檔至雲端硬碟。
           </p>
         </div>
         <div class="quest-actions">
           <a class="btn-quest btn-blue" href="https://colab.research.google.com/github/lianghao02/14_Google-Photos-Takeout-Organizer/blob/main/colab/01_相簿整理去重.ipynb" target="_blank" rel="noopener">
-            ⚔️ 領取任務 • 出征整理 ➜
+            🚀 開啟 Colab 執行整理 ➜
           </a>
         </div>
       </article>
 
-      <!-- 任務卡片 02 -->
+      <!-- 工具卡片 02 -->
       <article class="quest-card card-purple">
         <div>
           <div class="quest-meta">
-            <span class="quest-badge badge-purple">QUEST 02 • 常駐神殿</span>
-            <span class="quest-cost cost-purple">耗能：GPU 魔法加速</span>
+            <span class="quest-badge badge-purple">TOOL 02 • AI 智慧相簿</span>
+            <span class="quest-cost cost-purple">運算：GPU 加速 (T4)</span>
           </div>
-          <h2 class="quest-title">🔮 幻影神殿：AI 人臉聚類與千里搜圖</h2>
+          <h2 class="quest-title">🔮 AI 人臉分群與中文語意搜圖工作台</h2>
           <p class="quest-desc">
-            召喚 InsightFace 神祇自動識別家族同伴！輸入繁中密咒 0.05 秒神識搜圖，啟動 Gradio 水晶球並煉化單檔離線相簿！
+            整合 InsightFace 人臉特徵分析與多語言 CLIP 向量搜圖模型。透過 Gradio 網頁介面以自然語言搜尋照片，並支援一鍵匯出單檔離線 HTML5 家族互動相簿。
           </p>
         </div>
         <div class="quest-actions">
           <a class="btn-quest btn-purple" href="https://colab.research.google.com/github/lianghao02/14_Google-Photos-Takeout-Organizer/blob/main/colab/02_AI人臉與搜圖工作台.ipynb" target="_blank" rel="noopener">
-            🪄 進入神殿 • 開始探勘 ➜
+            🚀 開啟 Colab 執行工作台 ➜
           </a>
         </div>
       </article>
 
-      <!-- 任務卡片 03 -->
-      <article class="quest-card card-purple">
+      <!-- 工具卡片 03 -->
+      <article class="quest-card card-amber">
         <div>
           <div class="quest-meta">
-            <span class="quest-badge badge-purple">QUEST 03 • 時光祭壇</span>
-            <span class="quest-cost cost-purple">耗能：GPU 魔法加速</span>
+            <span class="quest-badge badge-amber">TOOL 03 • 畫質修復</span>
+            <span class="quest-cost cost-amber">運算：GPU 加速 (T4)</span>
           </div>
-          <h2 class="quest-title">✨ 時光祭壇：老照片五官重建與 4K 放大</h2>
+          <h2 class="quest-title">🖼️ 老照片 AI 畫質修復與超解析度工作台</h2>
           <p class="quest-desc">
-            結合 GFPGAN v1.4 與 Real-ESRGAN 4x+ 秘術！修復失焦泛黃老照片五官細節，無損升級 4K 高畫質並保全原檔！
+            專門修復泛黃、失焦、五官模糊的老舊照片與手機翻拍照。整合 GFPGAN v1.4 人臉細節精緻重建與 Real-ESRGAN 4K 無損放大，支援單張即時對比與保留目錄結構的批次修復。
           </p>
         </div>
         <div class="quest-actions">
-          <a class="btn-quest btn-purple" href="https://colab.research.google.com/github/lianghao02/14_Google-Photos-Takeout-Organizer/blob/main/colab/03_老照片畫質修復與超解析度.ipynb" target="_blank" rel="noopener">
-            ✨ 啟動祭壇 • 修復畫質 ➜
+          <a class="btn-quest btn-amber" href="https://colab.research.google.com/github/lianghao02/14_Google-Photos-Takeout-Organizer/blob/main/colab/03_老照片畫質修復與超解析度.ipynb" target="_blank" rel="noopener">
+            🚀 開啟 Colab 執行修復 ➜
           </a>
-        </div>
-      </article>
-
-      <!-- 任務卡片 04 (預備副本) -->
-      <article class="quest-card card-locked">
-        <div>
-          <div class="quest-meta">
-            <span class="quest-badge badge-gray">QUEST 04 • 鏈上深淵</span>
-            <span class="quest-cost cost-gray">即將解鎖</span>
-          </div>
-          <h2 class="quest-title" style="color: #94a3b8;">⛓️ 照妖晶鏡：多鏈金流圖譜獵手</h2>
-          <p class="quest-desc" style="color: #64748b;">
-            撥開 Polymarket 與多鏈迷霧！自動追查多層跳板洗錢路徑，以高維圖譜法眼洞悉金流流向。
-          </p>
-        </div>
-        <div class="quest-actions">
-          <span class="btn-quest btn-locked">🔒 尚未解鎖</span>
         </div>
       </article>
 
     </main>
 
     <footer>
-      ⚔️ 本冒險大廳受 LiangHao 全域開發憲法保護 • 100% 於 Google 私有虛擬機中完成
+      LiangHao's Project Hub • <a href="https://lianghao02.github.io/Project-Hub/colab.html">開啟線上工具箱主頁</a>
     </footer>
 
   </div>

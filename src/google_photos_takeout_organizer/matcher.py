@@ -119,7 +119,15 @@ def match(records: list[MediaRecord], files: list[Path], roots: dict[str, Path] 
             if not entries:
                 continue
             stem_lower = PurePosixPath(rec.original_filename).stem.lower().replace(" ", "")
-            cands = [p for norm_stem, p in entries if norm_stem.startswith(stem_lower)]
+            if not stem_lower:
+                continue
+            stem_len = len(stem_lower)
+            cands = [
+                p
+                for norm_stem, p in entries
+                if norm_stem == stem_lower
+                or (norm_stem.startswith(stem_lower) and norm_stem[stem_len] in (".", "(", "-", "_"))
+            ]
             if cands:
                 result[rec.id] = cands
         return result

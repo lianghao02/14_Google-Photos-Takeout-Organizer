@@ -42,14 +42,25 @@ def image_metadata(path: Path) -> tuple[int | None, int | None, str | None, str]
             exif_str = None
             if raw:
                 cleaned = str(raw).strip()
-                if len(cleaned) >= 19:
-                    exif_str = cleaned[:10].replace(":", "-") + "T" + cleaned[11:19]
-                    if offset and str(offset).strip():
-                        off = str(offset).strip()
-                        if off.startswith(("+", "-")) and len(off) in (5, 6):
-                            exif_str += off
-                else:
-                    exif_str = str(raw).replace(":", "-", 2).replace(" ", "T")
+                base_candidate = (
+                    cleaned[:10].replace(":", "-") + "T" + cleaned[11:19]
+                    if len(cleaned) >= 19
+                    else str(raw).replace(":", "-", 2).replace(" ", "T")
+                )
+                candidates: list[str] = []
+                if len(cleaned) >= 19 and offset and str(offset).strip():
+                    off = str(offset).strip()
+                    if off.startswith(("+", "-")) and len(off) in (5, 6):
+                        candidates.append(base_candidate + off)
+                candidates.append(base_candidate)
+                for cand in candidates:
+                    try:
+                        parsed = datetime.fromisoformat(cand)
+                        if parsed.year >= 1900:
+                            exif_str = cand
+                            break
+                    except ValueError:
+                        continue
             return image.width, image.height, exif_str, "FOUND" if exif_str else "NOT_FOUND"
     except Exception:
         return None, None, None, "CORRUPT_OR_UNSUPPORTED"

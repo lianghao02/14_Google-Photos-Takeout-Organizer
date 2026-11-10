@@ -5,7 +5,11 @@ from pathlib import Path
 from .models import MediaRecord, Code
 from .utils import dated_from_folder, dated_from_name
 
-IMAGES = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".heic", ".heif"}; VIDEOS = {".mp4", ".mov", ".m4v", ".avi"}
+IMAGES = {
+    ".jpg", ".jpeg", ".png", ".webp", ".gif", ".heic", ".heif",
+    ".arw", ".cr2", ".cr3", ".nef", ".dng", ".raf", ".rw2", ".orf",
+}
+VIDEOS = {".mp4", ".mov", ".m4v", ".avi"}
 def scan(root: Path, archive_id: str) -> tuple[list[MediaRecord], list[Path]]:
     media: list[MediaRecord] = []; sidecars: list[Path] = []
     for item in sorted(root.rglob("*")):

@@ -4,10 +4,10 @@
 
 ---
 
-## 🎮 總導航入口（專屬遊戲風格網頁）
+## 🎮 總導航入口（AI 雲端工具箱）
 
-👉 **[梁巡官的 AI 雲端冒險大廳 (Web 儀表板)](https://lianghao02.github.io/Project-Hub/colab.html)**  
-*(建議加入瀏覽器唯一書籤，隨時一鍵進入各個工具副本)*
+👉 **[AI 雲端工具箱 (Google Colab Hub)](https://lianghao02.github.io/Project-Hub/colab.html)**  
+*(建議加入瀏覽器書籤，隨時一鍵開啟各項雲端工具)*
 
 ---
 
@@ -40,6 +40,6 @@
 1. **Google Takeout 自動排程**：
    - 至 [Google Takeout](https://takeout.google.com/) 僅勾選「Google 相簿」。
    - 傳送方式選擇「新增至雲端硬碟」，頻率設定「每 2 個月匯出一次，為期 1 年」。
-   - 封存檔大小建議選 50 GB。
+   - 封存檔大小建議選 **10 GB**（若使用高磁碟空間 Colab 執行階段再選 50 GB，避免單卷複製至本地 SSD 時空間吃緊）。
 2. **在 Colab 開啟**：
-   - 直接點開 **[AI 雲端冒險大廳網頁](https://lianghao02.github.io/Project-Hub/colab.html)**，點擊任務卡片上的「出征按鈕」即可自動在新分頁開啟對應筆記本！
+   - 直接點開 **[AI 雲端工具箱網頁](https://lianghao02.github.io/Project-Hub/colab.html)**，點擊對應卡片按鈕即可在新分頁開啟筆記本！
