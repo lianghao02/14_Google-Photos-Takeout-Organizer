@@ -17,6 +17,7 @@ from .date_resolver import resolve
 from .dedupe import group
 from .planner import plan
 from .report import write_report
+from .utils import heal_fuse_if_disconnected
 
 log = logging.getLogger(__name__)
 
@@ -40,7 +41,13 @@ def analyze(
         root = source
         if source.suffix.lower() == ".zip":
             root = extracted / archive_id
-            source_sig = f"{source.name}:{source.stat().st_size}" if source.exists() else source.name
+            try:
+                source_sig = f"{source.name}:{source.stat().st_size}" if source.exists() else source.name
+            except OSError as exc:
+                if heal_fuse_if_disconnected(exc):
+                    source_sig = f"{source.name}:{source.stat().st_size}" if source.exists() else source.name
+                else:
+                    raise
             source_id_file = root / ".gpto-source.id"
             done_marker = root / ".gpto-extracted.ok"
             already_extracted = False
@@ -66,7 +73,31 @@ def analyze(
                     if progress_callback
                     else None
                 )
-                ext_warnings = extract_zip(source, root, cancel_requested=cancel_requested, progress_callback=ext_cb)
+                # 若來源位於 Colab Google Drive FUSE (/content/drive) 而工作區在本地 SSD，先單流循序複製至本地再解壓，避免數萬次隨機 FUSE 讀取觸發 Errno 107 斷線
+                use_local_staging = (
+                    str(source).startswith("/content/drive")
+                    and not str(work).startswith("/content/drive")
+                )
+                staging_zip = work / f".gpto-staging-{archive_id}.zip" if use_local_staging else None
+                try:
+                    zip_to_open = source
+                    if staging_zip is not None:
+                        if progress_callback:
+                            progress_callback("ANALYZE_EXTRACT", 0, 1, f"[{source.name}] 正在高速載入至本地 SSD...")
+                        for attempt in range(2):
+                            try:
+                                with source.open("rb") as fsrc, staging_zip.open("wb") as fdst:
+                                    shutil.copyfileobj(fsrc, fdst, length=16 * 1024 * 1024)
+                                break
+                            except OSError as exc:
+                                if attempt == 0 and heal_fuse_if_disconnected(exc):
+                                    continue
+                                raise
+                        zip_to_open = staging_zip
+                    ext_warnings = extract_zip(zip_to_open, root, cancel_requested=cancel_requested, progress_callback=ext_cb)
+                finally:
+                    if staging_zip is not None:
+                        staging_zip.unlink(missing_ok=True)
                 warnings.extend(ext_warnings)
                 if not any(w == str(Code.INVALID_ZIP) for w in ext_warnings):
                     try:
@@ -79,6 +110,19 @@ def analyze(
         found, sidecars = scan(root, archive_id)
         records.extend(found)
         jsons.extend(sidecars)
+
+    # 若工作區內保留有先前波次預先解壓的跨卷 JSON Sidecar，一併納入全域配對候選池
+    if extracted.is_dir():
+        known_roots = {Path(a["root"]) for a in archives}
+        known_jsons = set(jsons)
+        for extra_dir in sorted(extracted.iterdir()):
+            if extra_dir.is_dir() and extra_dir not in known_roots:
+                roots_key = f"extra_{extra_dir.name}"
+                archives.append({"archive_id": roots_key, "source": str(extra_dir), "root": str(extra_dir)})
+                for j_file in sorted(extra_dir.rglob("*.json")):
+                    if j_file.is_file() and not j_file.name.startswith(".gpto-") and j_file not in known_jsons:
+                        jsons.append(j_file)
+                        known_jsons.add(j_file)
 
     roots = {a["archive_id"]: Path(a["root"]) for a in archives}
     _, match_warnings = match(records, jsons, roots)
