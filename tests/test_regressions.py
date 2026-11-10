@@ -401,3 +401,121 @@ def test_scanner_raw_formats_and_colab_notebook_regex(tmp_path):
         m = zip_pat.match(fname)
         assert m is not None, fname
         assert m.groups() == expected
+
+
+def test_colab_notebooks_valid_syntax_and_ai_workbench_guardrails():
+    """驗證全數 Colab 筆記本皆具合法 Python 語法，並鎖定 02 號工作台雙 CLIP 模型與增量快取防回歸條件。"""
+    import ast
+    import json
+
+    colab_dir = Path(__file__).resolve().parents[1] / "colab"
+    notebooks = sorted(colab_dir.glob("*.ipynb"))
+    assert len(notebooks) == 3
+
+    for nb_file in notebooks:
+        nb_data = json.loads(nb_file.read_text(encoding="utf-8"))
+        for idx, cell in enumerate(nb_data.get("cells", [])):
+            if cell.get("cell_type") != "code":
+                continue
+            src_lines = [
+                ("# " + ln if ln.lstrip().startswith(("!", "%")) else ln)
+                for ln in cell.get("source", [])
+            ]
+            ast.parse("".join(src_lines), filename=f"{nb_file.name}#cell{idx}")
+
+    nb02 = json.loads((colab_dir / "02_AI人臉與搜圖工作台.ipynb").read_text(encoding="utf-8"))
+    step1_src = "".join(nb02["cells"][2]["source"])
+    step2_src = "".join(nb02["cells"][4]["source"])
+    step4_src = "".join(nb02["cells"][8]["source"])
+    step5_src = "".join(nb02["cells"][10]["source"])
+    step6_src = "".join(nb02["cells"][12]["source"])
+
+    assert "def ensure_drive_connected()" in step1_src
+    assert '"sentence-transformers[image]"' in step2_src
+    assert "pip uninstall -y -q onnxruntime" in step2_src
+    assert "--force-reinstall --no-deps onnxruntime-gpu" in step2_src
+
+    assert "SentenceTransformer('clip-ViT-B-32-multilingual-v1'" in step4_src
+    assert "SentenceTransformer('clip-ViT-B-32'" in step4_src
+    assert "img_model.encode(" in step4_src
+    assert "def _save_clip_cache(" in step4_src
+    assert "ThreadPoolExecutor" in step4_src
+    assert "ensure_drive_connected()" in step4_src
+
+    assert "faces_raw_vectors.npy" in step5_src
+    assert "faces_raw_meta.json" in step5_src
+    assert "ort.get_available_providers()" in step5_src
+    assert "ctx_id=0 if use_cuda else -1" in step5_src
+    assert "def _save_face_cache(" in step5_src
+
+    assert "text_model.encode(" in step6_src
+
+
+def test_colab_restorer_notebook_py313_and_pytorch26_guardrails():
+    """驗證 03 號老照片修復筆記本之 Python 3.13 basicsr 修補、PyTorch 2.6+ 權重相容與 FUSE 自癒機制。"""
+    import json
+    import sys
+    from types import SimpleNamespace
+
+    nb03 = json.loads(
+        (Path(__file__).resolve().parents[1] / "colab" / "03_老照片畫質修復與超解析度.ipynb").read_text(
+            encoding="utf-8"
+        )
+    )
+    step2_src = "".join(nb03["cells"][4]["source"])
+    step3_src = "".join(nb03["cells"][6]["source"])
+    step4_src = "".join(nb03["cells"][8]["source"])
+    step5_src = "".join(nb03["cells"][10]["source"])
+
+    assert "def ensure_drive_connected()" in step2_src
+    assert "force_remount=True" in step2_src
+
+    assert "return locals()['__version__']" in step3_src
+    assert "tb-nightly" in step3_src
+    assert "--no-deps gfpgan realesrgan" in step3_src
+
+    assert "torchvision.transforms.functional_tensor" in step4_src
+    assert "_gpto_weights_patched" in step4_src
+
+    # 萃取並實測 PyTorch weights_only=False 相容修補區塊（確保冪等且尊重明確參數）
+    calls = []
+
+    def fake_load(path, **kwargs):
+        calls.append((path, dict(kwargs)))
+        return kwargs
+
+    fake_torch = SimpleNamespace(load=fake_load)
+    fake_tv_fn = SimpleNamespace(placeholder=True)
+    fake_tv_transforms = SimpleNamespace(functional=fake_tv_fn)
+    fake_tv = SimpleNamespace(transforms=fake_tv_transforms)
+    patch_snippet = step4_src.split("import numpy as np", 1)[0]
+    fake_modules = {
+        "cv2": SimpleNamespace(),
+        "torch": fake_torch,
+        "torchvision": fake_tv,
+        "torchvision.transforms": fake_tv_transforms,
+        "torchvision.transforms.functional": fake_tv_fn,
+    }
+    ns = {}
+    tracked_keys = list(fake_modules) + ["torchvision.transforms.functional_tensor"]
+    orig_mods = {k: sys.modules.get(k) for k in tracked_keys}
+    try:
+        sys.modules.update(fake_modules)
+        exec(patch_snippet, ns)
+        assert sys.modules["torchvision.transforms.functional_tensor"] is fake_tv_fn
+        patched_once = fake_torch.load
+        assert getattr(patched_once, "_gpto_weights_patched", False) is True
+        exec(patch_snippet, ns)
+        assert fake_torch.load is patched_once
+        assert fake_torch.load("w1.pth") == {"weights_only": False}
+        assert fake_torch.load("w2.pth", weights_only=True) == {"weights_only": True}
+    finally:
+        for k, prev in orig_mods.items():
+            if prev is None:
+                sys.modules.pop(k, None)
+            else:
+                sys.modules[k] = prev
+
+    assert "ensure_drive_connected()" in step5_src
+    assert ".gpto_tmp_" in step5_src
+    assert "tmp_save.replace(save_path)" in step5_src
