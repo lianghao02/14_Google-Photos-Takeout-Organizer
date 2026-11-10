@@ -10,6 +10,7 @@ def scan(root: Path, archive_id: str) -> tuple[list[MediaRecord], list[Path]]:
     media: list[MediaRecord] = []; sidecars: list[Path] = []
     for item in sorted(root.rglob("*")):
         if not item.is_file(): continue
+        if item.name.startswith(".gpto-") or item.name.endswith(".gpto-part"): continue
         relative = item.relative_to(root).as_posix(); suffix = item.suffix.lower()
         if suffix == ".json": sidecars.append(item); continue
         kind = "photo" if suffix in IMAGES else "video" if suffix in VIDEOS else "unsupported"

@@ -9,8 +9,11 @@ class SafetyConflictError(RuntimeError):
     """An existing output has different bytes and must never be overwritten."""
 
 
-def _matches_expected(path: Path, size: int, digest: str | None) -> bool:
-    return path.is_file() and path.stat().st_size == size and (not digest or sha256(path) == digest)
+def _matches_expected(path: Path, size: int, digest: str | None, source: Path | None = None) -> bool:
+    if not path.is_file() or path.stat().st_size != size:
+        return False
+    expected = digest or (sha256(source) if source and source.is_file() else None)
+    return not expected or sha256(path) == expected
 
 
 def _copy_atomic(source: Path, destination: Path) -> None:
@@ -37,24 +40,25 @@ def export(
             manifest["export_state"] = "CANCELLED"
             break
         record = MediaRecord.from_dict(data); destination = output / record.planned_output_path
+        src_media = Path(record.source_path)
         try:
             if progress_callback:
                 progress_callback("EXPORT", current, len(records), destination.name)
-            if destination.exists() and _matches_expected(destination, record.size, record.sha256):
+            if destination.exists() and _matches_expected(destination, record.size, record.sha256, src_media):
                 record.export_status = "COPIED"
             elif destination.exists():
                 raise SafetyConflictError(f"既有輸出檔案與預期內容不同：{destination}")
             else:
                 destination.parent.mkdir(parents=True, exist_ok=True)
-                _copy_atomic(Path(record.source_path), destination)
+                _copy_atomic(src_media, destination)
                 record.export_status = "COPIED"
-            
+
             # Preserve matched Sidecar JSON alongside the media file
             if record.json_path and record.json_status == "MATCHED":
                 src_json = Path(record.json_path)
                 if src_json.is_file():
                     # Destination sidecar uses destination media filename + original sidecar suffix
-                    orig_name = Path(record.source_path).name
+                    orig_name = src_media.name
                     sidecar_name = src_json.name
                     if sidecar_name.startswith(orig_name):
                         dest_sidecar_name = destination.name + sidecar_name[len(orig_name):]

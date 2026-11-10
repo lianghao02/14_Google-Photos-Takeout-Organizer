@@ -1,11 +1,9 @@
 from __future__ import annotations
 import json
-from pathlib import Path
+import re
+from pathlib import Path, PurePosixPath
 from .models import Code, MediaRecord
 from .metadata import json_date, json_date_is_upload
-
-import re
-from pathlib import PurePosixPath
 
 def sidecar_candidate_names(original_filename: str) -> list[str]:
     p = PurePosixPath(original_filename)
@@ -36,74 +34,110 @@ def match(records: list[MediaRecord], files: list[Path], roots: dict[str, Path] 
     used: set[Path] = set()
     warnings: list[str] = []
     unmatched: list[MediaRecord] = list(records)
+    file_order = {p: idx for idx, p in enumerate(files)}
 
-    def get_phase1_candidates(rec: MediaRecord, available_files: list[Path]) -> list[Path]:
-        source = Path(rec.source_path)
-        expected = sidecar_candidate_names(rec.original_filename)
-        return [p for p in available_files if p.parent == source.parent and p.name in expected]
+    def run_phase1(avail: list[Path]) -> dict[str, list[Path]]:
+        by_parent_name: dict[tuple[Path, str], list[Path]] = {}
+        for p in avail:
+            by_parent_name.setdefault((p.parent, p.name), []).append(p)
+        result: dict[str, list[Path]] = {}
+        for rec in unmatched:
+            source_parent = Path(rec.source_path).parent
+            cands: list[Path] = []
+            for name in sidecar_candidate_names(rec.original_filename):
+                matched = by_parent_name.get((source_parent, name))
+                if matched:
+                    cands.extend(matched)
+            if len(cands) > 1:
+                cands.sort(key=file_order.__getitem__)
+            if cands:
+                result[rec.id] = cands
+        return result
 
-    def get_phase2_candidates(rec: MediaRecord, available_files: list[Path]) -> list[Path]:
-        expected = sidecar_candidate_names(rec.original_filename)
-        rel_parent = PurePosixPath(rec.relative_path).parent
-        cands = []
-        for p in available_files:
-            if p.name not in expected:
-                continue
+    def run_phase2(avail: list[Path]) -> dict[str, list[Path]]:
+        if not roots_map:
+            return {}
+        by_rel_parent_name: dict[tuple[PurePosixPath, str], list[Path]] = {}
+        for p in avail:
+            raw_p = getattr(p, "p", p)
             for root in roots_map.values():
                 try:
-                    p_rel = PurePosixPath(p.relative_to(root).as_posix())
-                    if p_rel.parent == rel_parent:
-                        cands.append(p)
+                    p_rel = PurePosixPath(raw_p.relative_to(root).as_posix())
+                    by_rel_parent_name.setdefault((p_rel.parent, p.name), []).append(p)
                     break
                 except ValueError:
                     continue
-        return cands
+        result: dict[str, list[Path]] = {}
+        for rec in unmatched:
+            rel_parent = PurePosixPath(rec.relative_path).parent
+            cands: list[Path] = []
+            for name in sidecar_candidate_names(rec.original_filename):
+                matched = by_rel_parent_name.get((rel_parent, name))
+                if matched:
+                    cands.extend(matched)
+            if len(cands) > 1:
+                cands.sort(key=file_order.__getitem__)
+            if cands:
+                result[rec.id] = cands
+        return result
 
-    def get_phase3_candidates(rec: MediaRecord, available_files: list[Path]) -> list[Path]:
-        expected = sidecar_candidate_names(rec.original_filename)
-        cands = []
-        for p in available_files:
-            if p.name not in expected:
-                continue
+    def run_phase3(avail: list[Path]) -> dict[str, list[Path]]:
+        if not roots_map:
+            return {}
+        by_root_name: dict[str, list[Path]] = {}
+        for p in avail:
+            raw_p = getattr(p, "p", p)
             for root in roots_map.values():
                 try:
-                    p_rel = PurePosixPath(p.relative_to(root).as_posix())
+                    p_rel = PurePosixPath(raw_p.relative_to(root).as_posix())
                     if str(p_rel.parent) in (".", ""):
-                        cands.append(p)
+                        by_root_name.setdefault(p.name, []).append(p)
                     break
                 except ValueError:
                     continue
-        return cands
+        result: dict[str, list[Path]] = {}
+        for rec in unmatched:
+            cands: list[Path] = []
+            for name in sidecar_candidate_names(rec.original_filename):
+                matched = by_root_name.get(name)
+                if matched:
+                    cands.extend(matched)
+            if len(cands) > 1:
+                cands.sort(key=file_order.__getitem__)
+            if cands:
+                result[rec.id] = cands
+        return result
 
-    def get_phase4_candidates(rec: MediaRecord, available_files: list[Path]) -> list[Path]:
-        source = Path(rec.source_path)
-        stem_lower = PurePosixPath(rec.original_filename).stem.lower().replace(" ", "")
-        return [
-            p for p in available_files
-            if p.parent == source.parent and p.stem.lower().replace(" ", "").startswith(stem_lower)
-        ]
+    def run_phase4(avail: list[Path]) -> dict[str, list[Path]]:
+        by_parent_stem: dict[Path, list[tuple[str, Path]]] = {}
+        for p in avail:
+            by_parent_stem.setdefault(p.parent, []).append((p.stem.lower().replace(" ", ""), p))
+        result: dict[str, list[Path]] = {}
+        for rec in unmatched:
+            source_parent = Path(rec.source_path).parent
+            entries = by_parent_stem.get(source_parent)
+            if not entries:
+                continue
+            stem_lower = PurePosixPath(rec.original_filename).stem.lower().replace(" ", "")
+            cands = [p for norm_stem, p in entries if norm_stem.startswith(stem_lower)]
+            if cands:
+                result[rec.id] = cands
+        return result
 
-    phases = [
-        get_phase1_candidates,
-        get_phase2_candidates,
-        get_phase3_candidates,
-        get_phase4_candidates,
-    ]
+    phases = [run_phase1, run_phase2, run_phase3, run_phase4]
 
-    for phase_fn in phases:
+    for phase_runner in phases:
         if not unmatched:
             break
         available = [p for p in files if p not in used]
         if not available:
             break
 
-        rec_to_candidates: dict[str, list[Path]] = {}
+        rec_to_candidates = phase_runner(available)
         cand_to_recs: dict[Path, list[MediaRecord]] = {}
-
         for rec in unmatched:
-            cands = phase_fn(rec, available)
+            cands = rec_to_candidates.get(rec.id)
             if cands:
-                rec_to_candidates[rec.id] = cands
                 for c in cands:
                     cand_to_recs.setdefault(c, []).append(rec)
 
@@ -142,9 +176,9 @@ def match(records: list[MediaRecord], files: list[Path], roots: dict[str, Path] 
                 rec.warnings.append(str(Code.INVALID_JSON))
             resolved_this_phase.append(rec)
 
-        for rec in resolved_this_phase:
-            if rec in unmatched:
-                unmatched.remove(rec)
+        if resolved_this_phase:
+            resolved_ids = {id(rec) for rec in resolved_this_phase}
+            unmatched = [rec for rec in unmatched if id(rec) not in resolved_ids]
 
     for rec in unmatched:
         if rec.json_status not in ("MATCHED", "AMBIGUOUS_SIDECAR", "INVALID_JSON"):

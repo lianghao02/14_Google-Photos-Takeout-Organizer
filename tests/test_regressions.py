@@ -1,11 +1,13 @@
 import io
+import time
 import zipfile
-from pathlib import PurePosixPath
+from pathlib import Path, PurePosixPath
 
 import pytest
 from PIL import Image
 
 from google_photos_takeout_organizer.exporter import export
+from google_photos_takeout_organizer.matcher import match
 from google_photos_takeout_organizer.models import MediaRecord
 from google_photos_takeout_organizer.planner import plan
 from google_photos_takeout_organizer.service import analyze
@@ -83,3 +85,53 @@ def test_invalid_zip_timestamp_does_not_use_extraction_time(tmp_path):
     assert record["resolved_date"] is None
     assert record["date_source"] == "UNKNOWN"
     assert any("ZIP_INVALID_TIMESTAMP" in warning for warning in manifest["warnings"])
+
+
+def test_safe_zip_resume_and_changed_zip_invalidation(tmp_path):
+    zip_a = tmp_path / "batch_a.zip"
+    zip_b = tmp_path / "batch_b.zip"
+    with zipfile.ZipFile(zip_a, "w") as z:
+        z.writestr("Album/a1.mov", b"video-a1")
+        z.writestr("Album/a2.mov", b"video-a2")
+    with zipfile.ZipFile(zip_b, "w") as z:
+        z.writestr("Album/b1.mov", b"video-b1-different-size")
+
+    work = tmp_path / "work"
+    partial_dir = work / "extracted" / "archive_001" / "Album"
+    partial_dir.mkdir(parents=True)
+    # 模擬舊版無標記的中斷殘留目錄：不應跳過 zip_a 的 a2.mov
+    (partial_dir / "stale.mov").write_bytes(b"stale")
+
+    manifest_a = analyze([zip_a], work)
+    names_a = sorted(r["original_filename"] for r in manifest_a["media_records"])
+    assert names_a == ["a1.mov", "a2.mov"]
+    assert (work / "extracted" / "archive_001" / ".gpto-extracted.ok").is_file()
+
+    # 當輸入 ZIP 清單變更為 zip_b 時，archive_001 必須自動重建而非沿用 zip_a 的解壓結果
+    manifest_b = analyze([zip_b], work)
+    names_b = [r["original_filename"] for r in manifest_b["media_records"]]
+    assert names_b == ["b1.mov"]
+
+
+def test_fast_large_batch_sidecar_matching():
+    class FastDummySidecar:
+        def __init__(self, p: Path):
+            self.p = p
+            self.name = p.name
+            self.stem = p.stem
+            self.parent = p.parent
+        def __str__(self): return str(self.p)
+        def read_text(self, encoding="utf-8"):
+            return '{"photoTakenTime": {"timestamp": "1600000000"}}'
+
+    records = [
+        MediaRecord(f"id_{i}", "a1", f"/vol/2026/IMG_{i:05d}.JPG", f"2026/IMG_{i:05d}.JPG", f"IMG_{i:05d}.JPG", ".jpg", 100, "photo")
+        for i in range(2000)
+    ]
+    sidecars = [FastDummySidecar(Path(f"/vol/2026/IMG_{i:05d}.JPG.supplemental-metadata.json")) for i in range(2000)]
+    start = time.perf_counter()
+    used, warnings = match(records, sidecars, {"a1": Path("/vol")})
+    elapsed = time.perf_counter() - start
+    assert len(used) == 2000
+    assert not warnings
+    assert elapsed < 2.0

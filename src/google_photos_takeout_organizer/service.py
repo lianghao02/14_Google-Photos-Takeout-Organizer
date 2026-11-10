@@ -2,12 +2,14 @@ from __future__ import annotations
 import json
 import logging
 import os
+import shutil
 import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Callable
 from . import __version__
 from .archive import extract_zip
+from .models import Code
 from .scanner import scan
 from .matcher import match
 from .metadata import image_metadata
@@ -38,15 +40,39 @@ def analyze(
         root = source
         if source.suffix.lower() == ".zip":
             root = extracted / archive_id
-            # 斷點續跑優化：若目錄已存在且非空，直接視為已解壓，完全不需再次連線開啟 ZIP
-            already_extracted = root.is_dir() and any(root.iterdir())
+            source_sig = f"{source.name}:{source.stat().st_size}" if source.exists() else source.name
+            source_id_file = root / ".gpto-source.id"
+            done_marker = root / ".gpto-extracted.ok"
+            already_extracted = False
+            if root.is_dir():
+                try:
+                    recorded_sig = source_id_file.read_text(encoding="utf-8").strip() if source_id_file.is_file() else ""
+                    done_sig = done_marker.read_text(encoding="utf-8").strip() if done_marker.is_file() else ""
+                except OSError:
+                    recorded_sig, done_sig = "", ""
+                if done_sig == source_sig:
+                    already_extracted = True
+                elif recorded_sig != source_sig:
+                    # 舊版無標記或壓縮檔清單順序變更：清除殘留目錄避免混入舊檔案或漏解壓
+                    shutil.rmtree(root, ignore_errors=True)
             if not already_extracted:
+                root.mkdir(parents=True, exist_ok=True)
+                try:
+                    source_id_file.write_text(source_sig, encoding="utf-8")
+                except OSError:
+                    pass
                 ext_cb = (
                     (lambda cur, tot, name, s_name=source.name: progress_callback("ANALYZE_EXTRACT", cur, tot, f"[{s_name}] {name}"))
                     if progress_callback
                     else None
                 )
-                warnings.extend(extract_zip(source, root, cancel_requested=cancel_requested, progress_callback=ext_cb))
+                ext_warnings = extract_zip(source, root, cancel_requested=cancel_requested, progress_callback=ext_cb)
+                warnings.extend(ext_warnings)
+                if not any(w == str(Code.INVALID_ZIP) for w in ext_warnings):
+                    try:
+                        done_marker.write_text(source_sig, encoding="utf-8")
+                    except OSError:
+                        pass
             elif progress_callback:
                 progress_callback("ANALYZE_EXTRACT", 1, 1, f"[{source.name}] (已解壓，秒速跳過)")
         archives.append({"archive_id": archive_id, "source": str(source), "root": str(root)})
@@ -59,7 +85,7 @@ def analyze(
     warnings.extend(match_warnings)
 
     total_recs = len(records)
-    
+
     # 多執行緒並行讀取 EXIF 與日期解析（大幅解決 Google Drive FUSE 網路單線程延遲）
     def _analyze_single(record):
         if record.media_type == "photo":

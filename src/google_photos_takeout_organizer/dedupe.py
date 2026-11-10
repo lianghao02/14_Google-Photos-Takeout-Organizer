@@ -13,16 +13,25 @@ def group(records: list[MediaRecord]) -> list[DuplicateGroup]:
             by_size[record.size].append(record)
 
     groups: list[DuplicateGroup] = []
-    
-    # 1. 僅對檔案大小相同的群組計算 SHA256 進行精確去重（不同大小絕不可能重複）
+
+    # 1. 僅對檔案大小相同的群組並行計算 SHA256 進行精確去重（不同大小絕不可能重複）
+    collision_records = [r for same_size in by_size.values() if len(same_size) >= 2 for r in same_size]
+    if collision_records:
+        def _hash_record(r: MediaRecord) -> None:
+            if not r.sha256:
+                r.sha256 = sha256(Path(r.source_path))
+        with ThreadPoolExecutor(max_workers=min(16, (os.cpu_count() or 4) * 4)) as ex:
+            list(ex.map(_hash_record, collision_records))
+
     for same_size in by_size.values():
         if len(same_size) < 2:
             continue
         hashes: dict[str, list[MediaRecord]] = defaultdict(list)
         for record in same_size:
-            record.sha256 = sha256(Path(record.source_path))
+            if not record.sha256:
+                record.sha256 = sha256(Path(record.source_path))
             hashes[record.sha256].append(record)
-            
+
         for digest, members in hashes.items():
             if len(members) < 2:
                 continue
